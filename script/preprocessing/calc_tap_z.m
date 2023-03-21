@@ -28,7 +28,7 @@ function tap = calc_tap_z(t_down, target_times,adjust_tactus, tactus_multiplier,
 %       t_async         time axis for async values
 %       async_target_times  Targets used for calculating async (targets with no associated tap deleted)
 %       async_target_no Index of async_target_times in complete target vector
-%       rp, t_rp, rp_unwrapped relative phase
+%       rp, t_rp, rp_unwrapped,ipresound relative phase
 %       imiss           Index of original targets with missing taps
 %       idbl            Index of double taps
 %       pct_missed      percent of taps missed
@@ -214,10 +214,14 @@ if ~keepEarlyTaps,
   earlytaps =  t_down < (min(target_times) - 0.55*beat_isi) ;
   t_down(earlytaps) = [];
 end
+iearlytaps = find(earlytaps);
+tap.iearlytaps = iearlytaps;
 
 %data sometimes contain taps after last beat, remove these
 latetaps =  t_down > (max(target_times) + beat_isi*0.55) ;
 t_down(latetaps) = [];
+ilatetaps = find(latetaps);
+tap.ilatetaps = ilatetaps;
 
 %discard initial targets that did not lead to taps
 earlytargets = target_times < min(t_down) - beat_isi*0.55;
@@ -394,7 +398,11 @@ fill_method = fillMethod;
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% relative phase
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-[rp, t_rp, rp_unwrapped] = relphase([],tactus_target_times,valid_t_down);
+[rp, t_rp, rp_unwrapped,async, ipresound] = relphase([],tactus_target_times,valid_t_down); 
+% [rp, t_rp, rp_unwrapped] = relphase([],target_times,valid_t_down); % the
+% same as using tactus_target_times
+%%%%%%%%%%%%%%%%%%%%% Note: asynchrony here is not calculated accurately, values are off %%%%%%%%%%%%%%%%%%%%%
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% debug plot
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -430,8 +438,8 @@ end
 tap = packstruct({'valid_t_down', 'tactus_target_times', 'beat_isi','isi','t_isi',...
   'iti', 't_iti','rescaled_iti','rescaled_t_iti', ...
   'async', 't_async','async_target_times','async_target_no',...
-  'rp','t_rp', 'rp_unwrapped'...
-  'imiss', 'idbl','total_n_missed',...
+  'rp','t_rp', 'rp_unwrapped','ipresound',...
+  'imiss', 'idbl','iearlytaps','ilatetaps','total_n_missed',...
   'pct_missed','adjust_tactus', 'tactus_multiplier','tapTargRatio'});
 
 %add filled version

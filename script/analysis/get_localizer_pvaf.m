@@ -1,9 +1,10 @@
 %% Set up parameters and the paths
-%eeglab
+% eeglab
 clear 
 close all
 clc
 
+addpath(genpath('/Volumes/TOSHIBA/Research/Imagined_beats/script'))
 % parameters
 AM = 4; % IC selection (AM2, AM3, AM4)
 % AM2: find the top aIC and mIC from the brain ICs > 0.4 to explain all
@@ -13,7 +14,7 @@ AM = 4; % IC selection (AM2, AM3, AM4)
 aICormIC = 'mIC'; % calculating for auditory or motor IC
 bic_th = 0.4; % threshold percentage
 bic_class = 1; % brain ICs
-ntop = 5;
+ntop = 3;
 
 if aICormIC == 'aIC'
     localizer_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/localizer_trials/rdlisten'; % for rdlisten2 files 
@@ -47,12 +48,12 @@ for sub = 1:nsub
     if AM == 2
        figure;[cmpvarorder,~,~,~,~,sortvar] = pop_envtopo(EEG, epoch_window,'compnums',...
            all_brainic{sub},'limcontrib',weight_window,'compsplot',...
-           1,'sortvar' ,'pv','dispmaps','on'); 
+           ntop,'sortvar' ,'pv','dispmaps','on'); 
     elseif AM == 3
         EEG = pop_subcomp(EEG, all_brainic{sub}, 0, 1);
         EEG = eeg_checkset(EEG); % recalculate icaact
         figure;[cmpvarorder0,~,~,~,~,sortvar] = pop_envtopo(EEG, epoch_window,'limcontrib',weight_window,'compsplot',...
-            1,'sortvar' ,'pv','dispmaps','on'); 
+            ntop,'sortvar' ,'pv','dispmaps','on'); 
         cmpvarorder(nic) = all_brainic{sub}(cmpvarorder0); % convert the index after subcomp to original IC index in the dipfit files
     elseif AM == 4
         icremove = [artifact{sub,1};artifact{sub,2};artifact{sub,3};artifact{sub,4};artifact{sub,5}];
@@ -61,9 +62,9 @@ for sub = 1:nsub
         ind(sub) = {tempind}; % get the original IC index with all retaining ICs
         EEG = pop_subcomp(EEG, icremove, 0, 0);
         EEG = eeg_checkset(EEG); % recalculate icaact
-        figure;[cmpvarorder0,~,~,~,~,sortvar] = pop_envtopo(EEG, epoch_window,'compnums',...
+        [cmpvarorder0,~,~,~,~,sortvar] = pop_envtopo(EEG, epoch_window,'compnums',...
             artifactfree_brainic{sub},'limcontrib',weight_window,'compsplot',...
-            1,'sortvar' ,'pv','dispmaps','on'); % get the pvaf and order from all ICs
+            ntop,'sortvar' ,'pv','dispmaps','on'); % get the pvaf and order from all ICs
         cmpvarorder = tempind(cmpvarorder0); % convert the index after subcomp to original IC index in the dipfit files
     else disp('Waring: Please define which AM selection criteria to use')
     end
@@ -108,7 +109,7 @@ top_IC(:,7) = 1:25;
 %% Visualization: run the "Set up parameters and the paths" first
 %% plot individal envtopo
 % see the comparison between cmpvarorder0 and cmpvarorder to check the IC index
-sub = 12;
+sub = 6;
 
 tempfile = localizer_name{sub};
 EEG = pop_loadset('filename', tempfile,'filepath', localizer_path);

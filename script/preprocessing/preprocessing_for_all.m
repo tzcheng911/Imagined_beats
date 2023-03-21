@@ -132,6 +132,9 @@ for nsub = 1:length(segmentation_name)
     end
     figure; plot(EEGr.data([sound,tap],:)')
 end
+%%
+clear
+close all
 
 tap1 = [2500 9e4;1000 1e5;1000 1e5;1000 9.8e4;2700 1e5;2.7e4 9.5e4;1000 7.2e4;...
     1000 1e5;1000 9.92e4;1000 6.5e4;1.07e4 1.05e5;7000 1.02e5;1e4 1.08e5;...
@@ -172,35 +175,35 @@ for nsub = 1:length(segmentation_name)
     EEG1 = pop_rmbase( EEG1, [-100         -50]);
     EEG1 = pop_saveset(EEG1,'filename',filename,'filepath',spontap_path);
 
-    EEG2 = pop_select(EEG0,'point',rdlisten2(nsub,:));
-    EEG2.setname = char(strcat(parts(1),'_rdlisten2'));
-    filename = EEG2.setname;
-    EEG2 = pop_saveset(EEG2,'filename',filename,'filepath',rdlisten_path);
-    EEG2.setname = char(strcat(parts(1),'_rdlisten2_e'));
-    filename = EEG2.setname;
-    EEG2 = pop_epoch( EEG2, {  'WB'  }, [-0.3         0.5]);
-    EEG2 = pop_rmbase( EEG2, [-100          -50]);
-    EEG2 = pop_saveset(EEG2,'filename',filename,'filepath',rdlisten_path);
-    
-    EEG3 = pop_select(EEG0,'point',sync3(nsub,:));
-    EEG3.setname = char(strcat(parts(1),'_sync3s'));
-    filename = EEG3.setname;
-    EEG3 = pop_saveset(EEG3,'filename',filename,'filepath',sync_path);
-    EEG3.setname = char(strcat(parts(1),'_sync3s_e'));
-    filename = EEG3.setname;
-    EEG3 = pop_epoch( EEG3, {  'WB'  }, [-0.3         0.5]);
-    EEG3 = pop_rmbase(EEG3, [-100          -50]);
-    EEG3 = pop_saveset(EEG3,'filename',filename,'filepath',sync_path);
-    
-    EEG4 = pop_select(EEG0,'point',sync3(nsub,:));
-    EEG4.setname = char(strcat(parts(1),'_sync3t'));
-    filename = EEG4.setname;
-    EEG4 = pop_saveset(EEG4,'filename',filename,'filepath',sync_path);
-    EEG4.setname = char(strcat(parts(1),'_sync3t_e'));
-    filename = EEG4.setname;
-    EEG4 = pop_epoch( EEG4, {  'Tap'  }, [-0.3         0.5]);
-    EEG4 = pop_rmbase(EEG4, [-100          -50]);
-    EEG4 = pop_saveset(EEG4,'filename',filename,'filepath',sync_path);
+%     EEG2 = pop_select(EEG0,'point',rdlisten2(nsub,:));
+%     EEG2.setname = char(strcat(parts(1),'_rdlisten2'));
+%     filename = EEG2.setname;
+%     EEG2 = pop_saveset(EEG2,'filename',filename,'filepath',rdlisten_path);
+%     EEG2.setname = char(strcat(parts(1),'_rdlisten2_e'));
+%     filename = EEG2.setname;
+%     EEG2 = pop_epoch( EEG2, {  'WB'  }, [-0.3         0.5]);
+%     EEG2 = pop_rmbase( EEG2, [-100          -50]);
+%     EEG2 = pop_saveset(EEG2,'filename',filename,'filepath',rdlisten_path);
+%     
+%     EEG3 = pop_select(EEG0,'point',sync3(nsub,:));
+%     EEG3.setname = char(strcat(parts(1),'_sync3s'));
+%     filename = EEG3.setname;
+%     EEG3 = pop_saveset(EEG3,'filename',filename,'filepath',sync_path);
+%     EEG3.setname = char(strcat(parts(1),'_sync3s_e'));
+%     filename = EEG3.setname;
+%     EEG3 = pop_epoch( EEG3, {  'WB'  }, [-0.3         0.5]);
+%     EEG3 = pop_rmbase(EEG3, [-100          -50]);
+%     EEG3 = pop_saveset(EEG3,'filename',filename,'filepath',sync_path);
+%     
+%     EEG4 = pop_select(EEG0,'point',sync3(nsub,:));
+%     EEG4.setname = char(strcat(parts(1),'_sync3t'));
+%     filename = EEG4.setname;
+%     EEG4 = pop_saveset(EEG4,'filename',filename,'filepath',sync_path);
+%     EEG4.setname = char(strcat(parts(1),'_sync3t_e'));
+%     filename = EEG4.setname;
+%     EEG4 = pop_epoch( EEG4, {  'Tap'  }, [-0.3         0.5]);
+%     EEG4 = pop_rmbase(EEG4, [-100          -50]);
+%     EEG4 = pop_saveset(EEG4,'filename',filename,'filepath',sync_path);
     clear latency tap1_e rdlisten_s rdlisten_e sync_s sync_e
 end
 
@@ -303,7 +306,7 @@ segmentation_name = {segmentation_files.name};
 epoch_path = '/Volumes/TOSHIBA EXT/Research/Imagined_beats/real_exp/preprocessed/epoch/5sphases';
 
 % s11, s20 don't have tap trials 
-for nsub = 11:13 % length(segmentation_name)
+for nsub = 1:length(segmentation_name)
     tempEEG = segmentation_name{nsub};
     parts = cellstr(split(tempEEG,'.'));
     EEG0 = pop_loadset('filename',tempEEG ,'filepath', segmentation_path);

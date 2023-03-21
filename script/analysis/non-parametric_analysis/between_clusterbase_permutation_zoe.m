@@ -1,0 +1,660 @@
+% 01/18/2022 Makoto. Used again. Modified a bit.
+% 01/10/2022 Makoto. Modified. abs() was removed. Maximum statistics for min and max are stored (because it is a t-test)
+% 12/26/2021 Zoe added one sample test
+% 06/15/2021 Zoe modified and used.
+% 02/12/2021 Makoto. Used.
+% 12/25/2020 Makoto. Created.
+
+%% The whole idea is to see if the cluster is "big" enough, by using the max statistic
+% for ERSP two sample ttest
+clear
+
+cd('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync')
+addpath(genpath('/Volumes/TOSHIBA/Research/Imagined_beats/script'))
+
+datafile = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync/mIC_averagebaslined_ersp_itc_sync3s.mat';
+load(datafile)
+
+load /Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/ITI_stds.mat
+load /Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/ITI_means.mat
+load /Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/sync/mean_relative_phase.mat
+
+group = 2;
+
+numIter         = 5000;
+%numIter         = 5000; % Instead of giving up p<0.01, increase the number here (01/10/2022 Makoto)
+timeWindowOfInt = find(times > -500);
+freqWindowOfInt = find(freqs>0.5);
+%trueBlobs       = zeros(4, length(freqWindowOfInt), length(timeWindowOfInt));
+trueBlobs       = zeros(length(freqWindowOfInt), length(timeWindowOfInt)); % Only compute p< 0.05(01/10/2022 Makoto)
+t_or_F          = zeros(length(freqWindowOfInt), length(timeWindowOfInt));
+pVals           = zeros(length(freqWindowOfInt), length(timeWindowOfInt));
+
+% for clusterIdx = 1:length(icClusters) % combine auditory and motor
+
+% Obtain group Idx for different grouping ways
+
+% group1_Idx = find(stds < median(stds)); % stable tapper
+% group2_Idx = find(stds > median(stds)); % unstable tapper
+
+group1_Idx = [4     8    15     3]; % top 4 stable tapper
+group2_Idx = [22    12    10     2]; % top 4 unstable tapper
+
+%    group1_Idx = find(means < median(means)); % fast tapper
+%    group2_Idx = find(means > median(means)); % slow tapper
+
+%   group1_Idx = find(abs(mean_relative_phase) < median(abs(mean_relative_phase))); % good syncher
+%   group2_Idx = find(abs(mean_relative_phase) > median(abs(mean_relative_phase))); % bad syncher
+
+group1_ersp = ersp(group1_Idx,:,:);
+group2_ersp = ersp(group2_Idx,:,:);
+
+% Prepare both positive and nagative max statistics (01/10/2022 Makoto).
+%     FWER_posi = zeros(4, numIter); % pValSteps, main effects + int, surro iter.
+%     FWER_nega = zeros(4, numIter); % pValSteps, main effects + int, surro iter.
+FWER_posi = zeros(1,numIter); % pValSteps, main effects + int, surro iter.
+FWER_nega = zeros(1,numIter); % pValSteps, main effects + int, surro iter.
+
+%     gFWER = zeros(4, numIter); % For get about gFWER (01/10/2022 Makoto)
+%    progress('init', 'Starting..');
+for iterIdx = 1:numIter+1
+    
+    disp(sprintf('%d/%d...', iterIdx, numIter+1)) % 01/10/2022 Makoto.
+    
+    %        progress(iterIdx/(numIter+1), sprintf('Cluster %d/%d, iteration %d/%d', clusterIdx, length(icClusters), iterIdx, numIter+1));
+    
+    if iterIdx == 1 % Ture diff.
+        
+        % Generate true data.
+        group1 = group1_ersp; % or group1_amflow, group1_maflow
+        group2 = group2_ersp; % or group2_amflow, group2_maflow
+        
+    else
+        
+        % Generate permutation data.
+        surroIcIdx = randperm(size(ersp,1));
+        input = ersp(surroIcIdx,:,:);
+        group1 = input(1:size(group1,1),:,:);
+        group2 = input(end-size(group1,1)+1:end,:,:);
+    end
+    
+    % Perform stats.
+    %        [stats, df, pvals] = statcond({input1 input2; input3 input4}, 'verbose', 'off'); % can just use b/t group ttest
+    [H, pvals, ~, stats] = ttest2(group1,group2,'dim',1);
+    % [stats, df, pvals] = statcond({randn(1,20)+1 randn(1,20)+1; randn(1,25) randn(1,25)});
+    % statcond()'s help is wrong. Output{1} is across columns! (12/27/2020)
+    
+    %{
+    % Visually evaluate the results (01/18/2022 Makoto)
+    figure
+    tiledlayout(1,3)
+    nexttile
+    imagesc(squeeze(mean(group1,1))); axis xy; colormap('jet'); colorbar
+    nexttile
+    imagesc(squeeze(mean(group2,1))); axis xy; colormap('jet'); colorbar
+    nexttile
+    imagesc(squeeze(mean(group1,1))-squeeze(mean(group2,1))); axis xy; colormap('jet'); colorbar
+    %}
+        
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%% Compute blob statistics. %%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    massOfCluster = [];
+    
+    if iterIdx == 1
+        t_or_F = squeeze(stats.tstat);
+        pVals  = squeeze(pvals);
+    end
+    
+    %             for pThreshIdx = 1:4
+    %
+    %                 switch pThreshIdx
+    %                     case 1
+    %                         pThresh = 0.05;
+    %                     case 2
+    %                         pThresh = 0.01;
+    %                     case 3
+    %                         pThresh = 0.005;
+    %                     case 4
+    %                         pThresh = 0.001;
+    %                 end
+    
+    % Fix the target p to 0.05 to save time (01/10/2022 Makoto)
+    pThresh    = 0.05;
+    
+    currentPvalMask = squeeze(pvals) < pThresh;
+    if any(currentPvalMask(:)) == 0 %%wrong code? should be any(currentPvalMask(:) == 0)
+        
+        % If this is the real blob test, record null result then continue.
+        if iterIdx == 1
+            trueBlobs = currentPvalMask;
+        end
+        continue
+    end
+    connectedComponentLabels = bwlabeln(currentPvalMask);  % This requires image processing toolbox
+    blobIdx  = nonzeros(unique(connectedComponentLabels)); % get the unique and nonzero (background) connected component index
+    
+    if iterIdx == 1
+        trueBlobs = connectedComponentLabels;
+        continue
+    end
+    
+    massOfCluster = zeros(length(blobIdx),1);
+    for blobIdxIdx = 1:length(blobIdx)
+        currentMask = connectedComponentLabels==blobIdx(blobIdxIdx);
+        %                     massOfCluster(blobIdxIdx) = sum(sum(squeeze(currentMask))); % number of pixel in the blob
+        %                     massOfCluster(blobIdxIdx) = squeeze(sum(sum(currentMask.*abs(squeeze(stats.tstat))))); % number of pixel weighted the stats in the blob
+        massOfCluster(blobIdxIdx) = squeeze(sum(sum(currentMask.*squeeze(stats.tstat)))); % number of pixel weighted the stats in the blob
+    end
+    
+    [maxVal1, maxValIdx] = max(massOfCluster);
+    [minVal1, minValIdx] = min(massOfCluster);
+    
+    FWER_posi(iterIdx) = maxVal1;
+    FWER_nega(iterIdx) = minVal1;
+    
+    %                 massOfCluster(maxValIdx) = [];
+    % %                [maxVal2, maxValIdx] = max(massOfCluster);
+    %                 FWER(pThreshIdx, iterIdx) = maxVal1;
+    % %                gFWER(pThreshIdx, iterIdx) = maxVal2;
+    %             end
+end
+
+%     icClusters(clusterIdx).stats.trueBlobs = single(trueBlobs);
+%     icClusters(clusterIdx).stats.pVals     = single(pVals);
+%     icClusters(clusterIdx).stats.t_or_F    = single(t_or_F);
+%     icClusters(clusterIdx).stats.FWER      = single(FWER(:,:,2:end));
+%     icClusters(clusterIdx).stats.gFWER     = single(gFWER(:,:,2:end));
+
+% calculate the significant blob
+% uncorrPval = [0.05,0.01,0.005,0.001];
+% uncorrPvalIdx = 1;
+% uncorrPval = uncorrPval(uncorrPvalIdx);
+uncorrPval = 0.05;
+
+%connectedComponentLabels = bwlabeln(squeeze(trueBlobs(uncorrPvalIdx,:,:))); % This requires image processing toolbox
+connectedComponentLabels = bwlabeln(trueBlobs); % This requires image processing toolbox
+blobIdx = nonzeros(unique(connectedComponentLabels));
+for blobIdxIdx = 1:length(blobIdx)
+    currentMask = connectedComponentLabels==blobIdx(blobIdxIdx);
+    %        massOfCluster(blobIdxIdx) = sum(sum(squeeze(currentMask))); % number of pixel in the blob
+    %     massOfCluster(blobIdxIdx) = squeeze(sum(sum(currentMask.*abs(t_or_F))));
+    massOfCluster(blobIdxIdx) = squeeze(sum(sum(currentMask.*t_or_F)));
+end
+figure;imagesc(times,freqs,connectedComponentLabels);axis xy; title('true blobs')
+
+currentMassOfCluster = massOfCluster;
+% criticalMOC = prctile(FWER_posi(uncorrPvalIdx,:), 100-uncorrPval*100);
+criticalMOC = [prctile(FWER_nega, uncorrPval*100) prctile(FWER_posi, 100-uncorrPval*100)];
+
+% survivedBlobIdx = find(currentMassOfCluster>criticalMOC);
+survivedBlobIdx = find(currentMassOfCluster<criticalMOC(1) | currentMassOfCluster>criticalMOC(2));
+
+if isempty(survivedBlobIdx)
+    warning('No blob survived.')
+end
+
+figure;hist(FWER_posi(1,:),100); title('Positive null distribution')
+hold on
+gridx(criticalMOC(2),'k:')
+hold on
+gridx(max(currentMassOfCluster),'r-')
+
+figure;hist(FWER_nega(1,:),100); title('Negative null distribution')
+hold on
+gridx(criticalMOC(1),'k:')
+hold on
+gridx(min(currentMassOfCluster),'r-')
+    % This result seems weird. (01/10/2022 Makoto)
+    %{
+    figure
+    tiledlayout(1,2)
+    nexttile
+    hist(FWER_nega,100); title('null distribution')
+    nexttile
+    hist(FWER_posi,100); title('null distribution')
+    %}
+
+% get the significance mask
+significanceMask = zeros(size(connectedComponentLabels));
+for survivedBlobIdxIdx = 1:length(survivedBlobIdx)
+    currentSignificanceMask = connectedComponentLabels == survivedBlobIdx(survivedBlobIdxIdx);
+    significanceMask = significanceMask + currentSignificanceMask;
+end
+
+%  Apply the significance mask to obtain ERSP.
+% contrast_ersp = squeeze(mean(group1_ersp,1)) - squeeze(mean(group2_ersp,1));
+% figure;imagesc(times,freqs,contrast_ersp);axis xy; colormap(jet);title('Contrast ERSP')
+% hold on
+% contour(times, freqs, significanceMask, 'k'); axis xy
+% caxis([-0.2 0.2])
+
+contrast_ersp = squeeze(mean(group1_ersp,1)) - squeeze(mean(group2_ersp,1));
+% figure
+% tiledlayout(1,2)
+% nexttile
+% imagesc(times,freqs,contrast_ersp);axis xy; colormap(jet);title('Contrast ERSP')
+% nexttile
+% imagesc(times,freqs,contrast_ersp.*significanceMask);axis xy; colormap(jet);title('Contrast ERSP')
+
+figure;
+imagesc(times,freqs,squeeze(mean(group1_ersp,1)));axis xy; colormap(jet);title('Stable tappers ERSP');caxis([0.8 1.1])
+
+figure;
+imagesc(times,freqs,squeeze(mean(group2_ersp,1)));axis xy; colormap(jet);title('Unstable tappers ERSP');caxis([0.8 1.1])
+
+figure;
+imagesc(times,freqs,contrast_ersp);axis xy; colormap(jet);title('Contrast ERSP')
+
+
+%% Perform a significanceMask-wise regression analysis (01/18/2022 Makoto)
+significanceMask3D = permute(significanceMask, [3 1 2]);
+meanErspMask = mean(mean(bsxfun(@times, ersp, significanceMask3D),2),3);
+
+[R, P] = corrcoef(meanErspMask, stds);
+T = R(1,2)*sqrt((length(meanErspMask)-2)/(1-R(1,2)^2));
+
+%% for ERSP one sample ttest regression (pretty slow ~4 hours AND not significant)
+% not significant for the mIC_sync3s
+
+clear
+clc
+close all
+
+tic
+
+clear
+cd('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync')
+addpath(genpath('/Volumes/TOSHIBA/Research/Imagined_beats/script'))
+
+datafile = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync/mIC_averagebaslined_ersp_itc_sync3t.mat';
+load(datafile)
+
+load /Users/t.z.cheng/Desktop/cluster_permutation/ITI_stds.mat
+load /Users/t.z.cheng/Desktop/cluster_permutation/ITI_means.mat
+load /Users/t.z.cheng/Desktop/cluster_permutation/mean_relative_phase.mat
+
+
+numIter         = 5000;
+nsub = size(ersp,1);
+timeWindowOfInt = find(times > -500);
+freqWindowOfInt = find(freqs > 0.5);
+trueBlobs       = zeros(4, length(freqWindowOfInt), length(timeWindowOfInt));
+t_or_F          = zeros(length(freqWindowOfInt), length(timeWindowOfInt));
+pVals           = zeros(length(freqWindowOfInt), length(timeWindowOfInt));
+
+% for clusterIdx = 1:length(icClusters) % combine auditory and motor
+
+% FWER_posi  = zeros(4, numIter); % pValSteps, main effects + int, surro iter.
+FWER_posi = zeros(1,numIter); % pValSteps, main effects + int, surro iter.
+FWER_nega = zeros(1,numIter); % pValSteps, main effects + int, surro iter.
+%     gFWER = zeros(4, numIter);
+%    progress('init', 'Starting..');
+for iterIdx = 1:numIter+1
+    disp(sprintf('%d/%d...', iterIdx, numIter+1)) % 01/10/2022 Makoto.
+    
+    %        progress(iterIdx/(numIter+1), sprintf('Cluster %d/%d, iteration %d/%d', clusterIdx, length(icClusters), iterIdx, numIter+1));
+    
+    if iterIdx == 1 % True diff.
+        
+        % Generate true data.
+        for nf = 1:size(ersp,2)
+            for nt = 1:size(ersp,3)
+                [tmpR tmpP] = corrcoef(squeeze(ersp(:,nf,nt)),stds);
+                r(nf,nt) = tmpR(1,2);
+                p(nf,nt) = tmpP(1,2);
+                t(nf,nt) = tmpR(1,2)*sqrt((nsub-2)/(1-tmpR(1,2)^2)); % https://urldefense.proofpoint.com/v2/url?u=https-3A__math.stackexchange.com_questions_4212076_why-2Dis-2Dthe-2Dstatistic-2Dt-2Dr-2Dsqrt-2Dfracn-2D21-2Dr-2D2-2Dapprox-2Dt-2Dn-2D2&d=DwIGAg&c=-35OiAkTchMrZOngvJPOeA&r=jSbmOsDn0WrBAJAH8fPBdulUuCIaSTXck1FW7aEsUtE&m=Uh9yvrooMYxLcc02E4kZ468epddStL1RMnsNrSnpFvXM7CaKPul1pLxAWCqicFT1&s=6FjahFjpp7tyfbs0agmPzZNR-ifnzI1pY1DqJcqBbFU&e= 
+            end
+        end
+        trueR = r;
+        trueP = p;
+        trueT = t;
+        
+        figure
+        imagesc(trueT)
+        colormap('jet')
+        axis xy
+        colorbar
+        
+    else
+        
+        % Generate permutation data.
+        surroIcIdx = randperm(size(ersp,1));
+        surro_stds = stds(1,surroIcIdx);
+        for nf = 1:size(ersp,2)
+            for nt = 1:size(ersp,3)
+                [tmpR tmpP] = corrcoef(squeeze(ersp(:,nf,nt)),surro_stds);
+                surro_r(nf,nt) = tmpR(1,2);
+                surro_p(nf,nt) = tmpP(1,2);
+                surro_t(nf,nt) = tmpR(1,2)*sqrt((nsub-2)/(1-tmpR(1,2)^2));
+            end
+        end
+        surro_R = surro_r;
+        surro_P = surro_p;
+        surro_T = surro_t;
+    end
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%% Compute blob statistics. %%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    pMask         = [];
+    massOfCluster = [];
+    
+    if iterIdx == 1
+        t_or_F = trueT;
+        pVals  = trueP;
+    else
+        t_or_F = surro_T;
+        pVals  = surro_P;
+    end
+    
+%     for pThreshIdx = 1:4
+%         
+%         switch pThreshIdx
+%             case 1
+%                 pThresh = 0.05;
+%             case 2
+%                 pThresh = 0.01;
+%             case 3
+%                 pThresh = 0.005;
+%             case 4
+%                 pThresh = 0.001;
+%         end
+        pThresh = 0.05;   
+        currentPvalMask = squeeze(pVals) < pThresh;
+        if any(currentPvalMask(:)) == 0
+            
+            % If this is the real blob test, record null result then continue.
+            if iterIdx == 1
+                trueBlobs = currentPvalMask;
+            end
+            continue
+        end
+        
+        connectedComponentLabels = bwlabeln(currentPvalMask); % This requires image processing toolbox
+        blobIdx  = nonzeros(unique(connectedComponentLabels)); % get the unique and nonzero (background) connected component index
+        
+        if iterIdx == 1
+            trueBlobs = connectedComponentLabels;
+            continue
+        end
+        
+        massOfCluster = zeros(length(blobIdx),1);
+        for blobIdxIdx = 1:length(blobIdx)
+            currentMask = connectedComponentLabels==blobIdx(blobIdxIdx);
+            %                    massOfCluster(blobIdxIdx) = sum(sum(squeeze(currentMask))); % number of pixel in the blob
+            %                    massOfCluster(blobIdxIdx) = squeeze(sum(sum(currentMask.*abs(squeeze(t_or_F))))); % number of pixel weighted the stats in the blob
+            massOfCluster(blobIdxIdx) = squeeze(sum(sum(currentMask.*squeeze(t_or_F)))); % number of pixel weighted the stats in the blob
+        end
+        
+        [maxVal1, maxValIdx] = max(massOfCluster);
+        [minVal1, minValIdx] = min(massOfCluster);
+    
+        FWER_posi(iterIdx) = maxVal1;
+        FWER_nega(iterIdx) = minVal1;
+        
+%         [maxVal1, maxValIdx] = max(massOfCluster);
+        %                massOfCluster(maxValIdx) = [];
+        %                [maxVal2, maxValIdx] = max(massOfCluster);
+%         FWER_posi(pThreshIdx, iterIdx) = maxVal1;
+        %                gFWER(pThreshIdx, iterIdx) = maxVal2;
+    end
+%end
+toc
+% calculate the significant blob
+uncorrPval = [0.05,0.01,0.005,0.001];
+uncorrPvalIdx = 1;
+uncorrPval = uncorrPval(uncorrPvalIdx);
+
+connectedComponentLabels = bwlabeln(squeeze(trueBlobs)); % This requires image processing toolbox
+blobIdx = nonzeros(unique(connectedComponentLabels));
+for blobIdxIdx = 1:length(blobIdx)
+    currentMask = connectedComponentLabels==blobIdx(blobIdxIdx);
+    %        massOfCluster(blobIdxIdx) = sum(sum(squeeze(currentMask))); % number of pixel in the blob
+    massOfCluster(blobIdxIdx) = squeeze(sum(sum(currentMask.*abs(trueT))));
+end
+figure;imagesc(times,freqs,connectedComponentLabels);axis xy; title('true blobs')
+
+currentMassOfCluster = massOfCluster;
+% criticalMOC = prctile(FWER_posi(uncorrPvalIdx,:), 100-uncorrPval*100);
+criticalMOC = [prctile(FWER_nega, uncorrPval*100) prctile(FWER_posi, 100-uncorrPval*100)];
+
+% survivedBlobIdx = find(currentMassOfCluster>criticalMOC);
+survivedBlobIdx = find(currentMassOfCluster<criticalMOC(1) | currentMassOfCluster>criticalMOC(2));
+
+if isempty(survivedBlobIdx)
+    warning('No blob survived.')
+end
+figure;hist(FWER_posi(uncorrPvalIdx,:),100); title('null distribution')
+hold on;gridx(criticalMOC(1,2),'k:');
+hold on; gridx(max(massOfCluster),'r:');
+
+figure;hist(FWER_nega(uncorrPvalIdx,:),100); title('null distribution')
+hold on;gridx(criticalMOC(1,1),'k:');
+hold on; gridx(min(massOfCluster),'r:');
+
+% get the significance mask
+significanceMask = zeros(size(connectedComponentLabels));
+for survivedBlobIdxIdx = 1:length(survivedBlobIdx)
+    currentSignificanceMask = connectedComponentLabels == survivedBlobIdx(survivedBlobIdxIdx);
+    significanceMask = significanceMask + currentSignificanceMask;
+end
+
+%  Apply the significance mask to obtain ERSP.
+figure;imagesc(times,freqs,trueP);axis xy; colormap(jet);title('ERSP P value')
+
+figure;imagesc(times,freqs,trueR);axis xy; colormap(jet);title('ERSP Beta value')
+hold on
+contour(times,freqs, significanceMask, 'k'); axis xy
+caxis([-0.2 0.2])
+
+%% for ERSP one sample ttest regression (LME method very slow)
+clear
+clc
+close all
+
+tic
+% cd('/Users/t.z.cheng/Desktop/cluster_permutation/')
+% addpath('/Users/t.z.cheng/Google_Drive/Research/Imagined_beats/script/JI_supporting_MatLabFiles')
+
+datafile = '/Users/t.z.cheng/Desktop/cluster_permutation/mIC_averagebaslined_ersp_itc_sync3s.mat'
+load(datafile)
+load /Users/t.z.cheng/Desktop/cluster_permutation/ITI_stds.mat
+
+% datafile = '/data/projects/zoe/ImaginedBeats/real_exp/results/Localizers/mIC_averagebaslined_ersp_itc_sync3s.mat';
+% load(datafile)
+% load /data/projects/zoe/ImaginedBeats/real_exp/results/Localizers/ITI_stds.mat
+
+numIter         = 10;
+nsub = size(ersp,1);
+subjects = 1:nsub;
+timeWindowOfInt = find(times > -500);
+freqWindowOfInt = find(freqs > 0.5);
+trueBlobs       = zeros(4, length(freqWindowOfInt), length(timeWindowOfInt));
+t_or_F          = zeros(length(freqWindowOfInt), length(timeWindowOfInt));
+pVals           = zeros(length(freqWindowOfInt), length(timeWindowOfInt));
+
+% for clusterIdx = 1:length(icClusters) % combine auditory and motor
+
+% FWER_posi  = zeros(4, numIter); % pValSteps, main effects + int, surro iter.
+FWER_posi = zeros(1,numIter); % pValSteps, main effects + int, surro iter.
+FWER_nega = zeros(1,numIter); % pValSteps, main effects + int, surro iter.
+%     gFWER = zeros(4, numIter);
+%    progress('init', 'Starting..');
+for iterIdx = 1:numIter+1
+    disp(sprintf('%d/%d...', iterIdx, numIter+1)) % 01/10/2022 Makoto.
+    
+    %        progress(iterIdx/(numIter+1), sprintf('Cluster %d/%d, iteration %d/%d', clusterIdx, length(icClusters), iterIdx, numIter+1));
+    
+    if iterIdx == 1 % True diff.
+        
+        % Generate true data.
+        for nf = 1:size(ersp,2)
+            for nt = 1:size(ersp,3)
+%                 [tmpR tmpP] = corrcoef(squeeze(ersp(:,nf,nt)),stds);
+%                 r(nf,nt) = tmpR(1,2);
+%                 p(nf,nt) = tmpP(1,2);
+%                 t(nf,nt) = tmpR(1,2)*sqrt((nsub-2)/(1-tmpR(1,2)^2)); % https://urldefense.proofpoint.com/v2/url?u=https-3A__math.stackexchange.com_questions_4212076_why-2Dis-2Dthe-2Dstatistic-2Dt-2Dr-2Dsqrt-2Dfracn-2D21-2Dr-2D2-2Dapprox-2Dt-2Dn-2D2&d=DwIGAg&c=-35OiAkTchMrZOngvJPOeA&r=jSbmOsDn0WrBAJAH8fPBdulUuCIaSTXck1FW7aEsUtE&m=Uh9yvrooMYxLcc02E4kZ468epddStL1RMnsNrSnpFvXM7CaKPul1pLxAWCqicFT1&s=6FjahFjpp7tyfbs0agmPzZNR-ifnzI1pY1DqJcqBbFU&e= 
+                
+                my_ds = dataset(squeeze(ersp(:,nf,nt)),stds',subjects'); % Zoe added (2022/1/19)
+                my_lme = fitlme(my_ds,'Var1 ~ Var2 + (Var2|Var3)'); % Zoe added (2022/1/19)
+                t(nf,nt) = my_lme.Coefficients.tStat(2); % Zoe added (2022/1/19)
+
+            end
+        end
+        trueR = r;
+        trueP = p;
+        trueT = t;
+        
+        figure
+        imagesc(trueT)
+        colormap('jet')
+        axis xy
+        colorbar
+        
+    else
+        
+        % Generate permutation data.
+        surroIcIdx = randperm(size(ersp,1));
+        surro_stds = stds(1,surroIcIdx);
+        for nf = 1:size(ersp,2)
+            for nt = 1:size(ersp,3)
+%                 [tmpR tmpP] = corrcoef(squeeze(ersp(:,nf,nt)),surro_stds);
+%                 surro_r(nf,nt) = tmpR(1,2);
+%                 surro_p(nf,nt) = tmpP(1,2);
+%                 surro_t(nf,nt) = tmpR(1,2)*sqrt((nsub-2)/(1-tmpR(1,2)^2));
+                surro__ds = dataset(squeeze(ersp(:,nf,nt)),surro_stds',subjects'); % Zoe added (2022/1/19)
+                surro_lme = fitlme(surro__ds,'Var1 ~ Var2 + (Var2|Var3)'); % Zoe added (2022/1/19)
+                surro_t(nf,nt) = surro_lme.Coefficients.tStat(2); % Zoe added (2022/1/19)
+            end
+        end
+        surro_R = surro_r;
+        surro_P = surro_p;
+        surro_T = surro_t;
+    end
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%% Compute blob statistics. %%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    pMask         = [];
+    massOfCluster = [];
+    
+    if iterIdx == 1
+        t_or_F = trueT;
+        pVals  = trueP;
+    else
+        t_or_F = surro_T;
+        pVals  = surro_P;
+    end
+    
+%     for pThreshIdx = 1:4
+%         
+%         switch pThreshIdx
+%             case 1
+%                 pThresh = 0.05;
+%             case 2
+%                 pThresh = 0.01;
+%             case 3
+%                 pThresh = 0.005;
+%             case 4
+%                 pThresh = 0.001;
+%         end
+        pThresh = 0.05;   
+        currentPvalMask = squeeze(pVals) < pThresh;
+        if any(currentPvalMask(:)) == 0
+            
+            % If this is the real blob test, record null result then continue.
+            if iterIdx == 1
+                trueBlobs = currentPvalMask;
+            end
+            continue
+        end
+        
+        connectedComponentLabels = bwlabeln(currentPvalMask); % This requires image processing toolbox
+        blobIdx  = nonzeros(unique(connectedComponentLabels)); % get the unique and nonzero (background) connected component index
+        
+        if iterIdx == 1
+            trueBlobs = connectedComponentLabels;
+            continue
+        end
+        
+        massOfCluster = zeros(length(blobIdx),1);
+        for blobIdxIdx = 1:length(blobIdx)
+            currentMask = connectedComponentLabels==blobIdx(blobIdxIdx);
+            %                    massOfCluster(blobIdxIdx) = sum(sum(squeeze(currentMask))); % number of pixel in the blob
+            %                    massOfCluster(blobIdxIdx) = squeeze(sum(sum(currentMask.*abs(squeeze(t_or_F))))); % number of pixel weighted the stats in the blob
+            massOfCluster(blobIdxIdx) = squeeze(sum(sum(currentMask.*squeeze(t_or_F)))); % number of pixel weighted the stats in the blob
+        end
+        
+        [maxVal1, maxValIdx] = max(massOfCluster);
+        [minVal1, minValIdx] = min(massOfCluster);
+    
+        FWER_posi(iterIdx) = maxVal1;
+        FWER_nega(iterIdx) = minVal1;
+        
+%         [maxVal1, maxValIdx] = max(massOfCluster);
+        %                massOfCluster(maxValIdx) = [];
+        %                [maxVal2, maxValIdx] = max(massOfCluster);
+%         FWER_posi(pThreshIdx, iterIdx) = maxVal1;
+        %                gFWER(pThreshIdx, iterIdx) = maxVal2;
+    end
+%end
+toc
+% calculate the significant blob
+uncorrPval = [0.05,0.01,0.005,0.001];
+uncorrPvalIdx = 1;
+uncorrPval = uncorrPval(uncorrPvalIdx);
+
+connectedComponentLabels = bwlabeln(squeeze(trueBlobs)); % This requires image processing toolbox
+blobIdx = nonzeros(unique(connectedComponentLabels));
+for blobIdxIdx = 1:length(blobIdx)
+    currentMask = connectedComponentLabels==blobIdx(blobIdxIdx);
+    %        massOfCluster(blobIdxIdx) = sum(sum(squeeze(currentMask))); % number of pixel in the blob
+    massOfCluster(blobIdxIdx) = squeeze(sum(sum(currentMask.*abs(trueT))));
+end
+figure;imagesc(times,freqs,connectedComponentLabels);axis xy; title('true blobs')
+
+currentMassOfCluster = massOfCluster;
+% criticalMOC = prctile(FWER_posi(uncorrPvalIdx,:), 100-uncorrPval*100);
+criticalMOC = [prctile(FWER_nega, uncorrPval*100) prctile(FWER_posi, 100-uncorrPval*100)];
+
+% survivedBlobIdx = find(currentMassOfCluster>criticalMOC);
+survivedBlobIdx = find(currentMassOfCluster<criticalMOC(1) | currentMassOfCluster>criticalMOC(2));
+
+if isempty(survivedBlobIdx)
+    warning('No blob survived.')
+end
+figure;hist(FWER_posi(uncorrPvalIdx,:),100); title('null distribution')
+hold on;gridx(criticalMOC(1,2),'k:');
+hold on; gridx(max(massOfCluster),'r:');
+
+figure;hist(FWER_nega(uncorrPvalIdx,:),100); title('null distribution')
+hold on;gridx(criticalMOC(1,1),'k:');
+hold on; gridx(min(massOfCluster),'r:');
+
+% get the significance mask
+significanceMask = zeros(size(connectedComponentLabels));
+for survivedBlobIdxIdx = 1:length(survivedBlobIdx)
+    currentSignificanceMask = connectedComponentLabels == survivedBlobIdx(survivedBlobIdxIdx);
+    significanceMask = significanceMask + currentSignificanceMask;
+end
+
+%  Apply the significance mask to obtain ERSP.
+figure;imagesc(times,freqs,trueP);axis xy; colormap(jet);title('ERSP P value')
+
+figure;imagesc(times,freqs,trueR);axis xy; colormap(jet);title('ERSP Beta value')
+hold on
+contour(times,freqs, significanceMask, 'k'); axis xy
+caxis([-0.2 0.2])
+
+%% calculate t stats from rho based on corrcoef
+datafile = '/Users/t.z.cheng/Desktop/cluster_permutation/mIC_averagebaslined_ersp_itc_sync3s.mat';
+load(datafile)
+load /Users/t.z.cheng/Desktop/cluster_permutation/ITI_stds.mat;
+n = 25;
+
+[tmpR, tmpP] = corrcoef(squeeze(ersp(:,1,1)),stds(:));
+r =  tmpR(1,2);
+t = r*sqrt((n-2)/(1-r^2));
+2*tcdf(t,n-2,'upper')

@@ -55,7 +55,7 @@ stim = y1(1*fs:6*fs);
 [control,f] = calc_fft(stim,1/fs,60*fs);
 figure;plot(f,(abs(control)/length(control))*2,'LineWidth',2);
 xlim([0.5 3])
-ylim([0 3.5e-4])
+ylim([0 2e-5])
 set(gca,'FontSize',18)
 gridx(2.4,'k:')
 xlabel('Frequency (Hz)')

@@ -1,8 +1,29 @@
+cd('/Applications/eeglab2021.1')
+eeglab
 addpath('/Volumes/TOSHIBA/Research/Imagined_beats/script/analysis')
 addpath('/Volumes/TOSHIBA/Research/Imagined_beats/script/JI_supporting_MatLabFiles')
 addpath('/Volumes/TOSHIBA/Research/Imagined_beats/script/preprocessing')
 
-%% Localizeer - TAP (spontaneous tapping) 
+%% Check if the 'Tap' events really match the raw data (the threshold may not capture most of them) 
+cd('/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/preprocessing')
+clear 
+close all
+
+EEG = pop_loadset('s13_evtag_512.set');
+for nt = 1:length(EEG.event)
+    if string(EEG.event(nt).type) == 'Tap' % only extract the time point of the tap events  
+       tempt(nt) = EEG.event(nt).latency; % convert from sample point to time 
+    else tempt(nt) = 0;
+    end
+end  
+
+localizer_end = 4e5;
+ind = find(tempt > localizer_end);
+
+figure; plot(EEG.data(end-32+2,1:localizer_end)); % may need to change 7 to other trigger channel
+gridx(tempt(1:ind(1)),'r:');
+
+%% Localizer - TAP (spontaneous tapping) 
 clear 
 close all
 clc
@@ -13,7 +34,8 @@ datasets = {files.name};
 tap = {};
 ITI = {};
 
-for iS = 1:length(datasets)
+iS = 12
+%for iS = 1:length(datasets)
     datasetFile = datasets{iS};
     EEG = pop_loadset('filename',datasetFile ,'filepath', dataDir);
     for nt = 1:length(EEG.event)
@@ -29,7 +51,9 @@ for iS = 1:length(datasets)
     means(iS) = mean(ITI{iS});
     stds(iS) = std(ITI{iS}); 
     clear tempt EEG nt tempITI
-end
+%end
+cd('/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/results/Localizers/SMT')
+%% save ITI ITI0 ITI
 
 % fast, slow tappers based on the means of ITI; stable and unstable tappers based
 % on the stds of ITI
@@ -42,8 +66,8 @@ unstable_tapper = find(stds > median(stds));
 % load('/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/results/Localizers/SMT/ITI_means.mat')
 % load('/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/results/Localizers/SMT/ITI_stds.mat')
 
-figure;bar(means);title('Average of ITI');
-figure;bar(stds);title('Variability of ITI');
+figure;bar(means);title('Mean of ITI');
+figure;bar(stds);title('Standard deviation of ITI');
 gridy(median(stds),'r:')
 
 figure;plot(ITI{2},'.') % plot the high var tappers
@@ -53,16 +77,18 @@ figure;plot(EEG.times,EEG.data);title('tap triggers')
 
 %% Localizer - SYNC (synchronize with beats in 600 ms)
 clear
-close all
-clc
+
+taps_all = [];
+load('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync/epoch_acceptedind.mat')
 cd '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/localizer_trials/sync'
 dataDir = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/localizer_trials/sync/';
-files = dir(fullfile(dataDir,'*sync3s.set'));
+% files = dir(fullfile(dataDir,'*sync3s.set'));
+files = dir(fullfile(dataDir,'*sync3t.set'));
+
 datasets = {files.name};
 for iS = 1:length(datasets)
     datasetFile = datasets{iS};
     EEG = pop_loadset('filename',datasetFile ,'filepath', dataDir);
-
     for n = 1:length(EEG.event)
         if string(EEG.event(n).type) == 'Tap'
            taps (n,1) = EEG.event(n).latency/EEG.srate*1000;
@@ -72,19 +98,47 @@ for iS = 1:length(datasets)
     end
 new_taps = taps(taps~=0);
 new_listens = listens(listens~=0);
+
+new_taps = new_taps(acceptedind{iS}); % only used the kept epoch Zoe 2022/7/29 
+ 
+taps_all{iS} = new_taps;
+listens_all{iS} = new_listens;
+
 tap_results{iS} = calc_tap_z(new_taps, new_listens);
-relative_phase{iS} = tap_results{iS}.rp(find(isoutlier(tap_results{iS}.rp,'median') == 0));
-asynchrony{iS} = tap_results{iS}.async(find(isoutlier(tap_results{iS}.async,'median') == 0));
-ITI{iS} = tap_results{iS}.iti(find(isoutlier(tap_results{iS}.iti,'median') == 0));
+relative_phase{iS} = tap_results{iS}.rp; 
+asynchrony{iS} = tap_results{iS}.async;
+ITI{iS} = tap_results{iS}.iti;
+% exclude outliers
+% relative_phase{iS} = tap_results{iS}.rp(~isoutlier(tap_results{iS}.rp,'median')); % is this right? should use circular median tho, maybe not do this
+% asynchrony{iS} = tap_results{iS}.async(~isoutlier(tap_results{iS}.async,'median'));
+% ITI{iS} = tap_results{iS}.iti(~isoutlier(tap_results{iS}.iti,'median'));
+
+% visualize the sound and taps 
+% figure; gridx(listens); hold on; gridx(taps,'r:');
+
+% check for the nan in relative phase
+disp(iS)
+disp(sum(isnan(relative_phase{iS})))
+
 clear new_taps new_listens taps listens
+
 mean_ITI(iS) = mean(ITI{iS});
 stds(iS) = std(ITI{iS}); 
 mean_asynchrony(iS) = mean(asynchrony{iS});
-mean_relative_phase(iS) = nanmean(relative_phase{iS}); % use nanmean instead of mean to average across non nan 
+[theta(iS), rbar(iS), delta(iS), cse(iS), csd(iS)] = circmean(relative_phase{iS}*2*pi); % get the circular mean from the radius (* 360 * pi / 180) of the data
 end
 
-%%
-% fast, slow tappers based on the means of ITI; stable and unstable tappers based
+save calc_tap_input taps_all listens_all
+save calc_tap_output tap_results
+save relative_phase relative_phase
+save asynchrony asynchrony 
+save circular_relphase theta rbar delta cse csd
+
+%% Flag the epoch that has large relphase and the one missed tapping
+missed = tap_results{1,1}.imiss;
+large_relphase = tap_results{1,1}.rp
+
+%% fast, slow tappers based on the means of ITI; stable and unstable tappers based
 % on the stds of ITI
 fast_tapper = find(means < median(means));
 slow_tapper = find(means > median(means));
@@ -99,6 +153,7 @@ unstable_tapper = find(stds > median(stds));
 figure;bar(mean_ITI);title('Average of ITI');
 figure;bar(mean_asynchrony);title('Average of asynchrony');
 figure;bar(mean_relative_phase);title('Average of relative phase');
+figure;polarplot(mean_relative_phase);title('Average of relative phase'); % the magnitude will be influenced by the unit (ratio, radius, degree)
 
 figure;plot(ITI{2},'.') % plot the high var tappers
 cd('/Volumes/TOSHIBA EXT/Research/Imagined_beats/real_exp/trigger_channels/')

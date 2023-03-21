@@ -1,4 +1,4 @@
-eeglab
+% eeglab
 clear 
 close all
 clc
@@ -6,9 +6,11 @@ clc
 %% Load the EEG files and cfg files 
 addpath(genpath('/Volumes/TOSHIBA/Research/Imagined_beats/script'))
 % sift_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/localizer_trials/SMT';
-% sift_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/localizer_trials/rdlisten/long';
-sift_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/preprocessed/epoch/whole_trial';
+sift_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/localizer_trials/sync';
 
+% sift_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/localizer_trials/rdlisten/long';
+% sift_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/preprocessed/epoch/5sphases';
+% sift_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/preprocessed/epoch/phases_no_bc';
 
 % output_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/results/Localizers/SIFTs';
 output_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/sifts/SIFT_output/2020';
@@ -65,30 +67,43 @@ sub(rmsub_idx) =[];
 %% Some parameters to decide
 
 % Experiment 
-Winlen = 10; % main
-%Winlen = 0.5; % localizer
-Seglen = 10; % main
-%Seglen = 0.5; % localizer
+Morder = 270;
+Winlen = 3; % main
 Winstep = 0.1;
+Seglen = 3; % main
 Segstep = 0.1;
+
 
 % Official parameter in the paper
 Morder = 30;
-% Winlen = 1; % main
-% %Winlen = 0.5; % localizer
-% Winstep = 0.1;
-% Seglen = 1; % main
-% %Seglen = 0.5; % localizer
-% Segstep = 0.1;
+Winlen = 1; % main
+Winstep = 0.1;
+Seglen = 1; % main
+Segstep = 0.1;
 est_fitMVAR_cfg.morder = Morder;
 est_fitMVAR_cfg.winlen = Winlen;
 est_fitMVAR_cfg.winstep = Winstep;
 pre_prepData_cfg.detrend.piecewise.seglength = Seglen;
 pre_prepData_cfg.detrend.piecewise.stepsize = Segstep;
-% est_mvarConnectivity_cfg.logfreqs = logspace(0.5,3.5,200);
+est_mvarConnectivity_cfg.freqs = [0.5:0.1:45];
+% est_mvarConnectivity_cfg.connmethods = {'dDTF08'};
+%est_mvarConnectivity_cfg.logfreqs = logspace(0.5,3.5,200);
 cd(output_path)
 
-%% Run SIFT IMB: preprocessing, model validation, connectivity
+% Localizer paper
+Morder = 30;
+Winlen = 0.5; % localizer
+Winstep = 0.1;
+Seglen = 0.5; % localizer
+Segstep = 0.1;
+est_fitMVAR_cfg.morder = Morder;
+est_fitMVAR_cfg.winlen = Winlen;
+est_fitMVAR_cfg.winstep = Winstep;
+pre_prepData_cfg.detrend.piecewise.seglength = Seglen;
+pre_prepData_cfg.detrend.piecewise.stepsize = Segstep;
+est_mvarConnectivity_cfg.freqs = [0.5:0.1:45];
+
+%% Run SIFT IMB: preprocessing, model validation, connectivity, stats
 SIFTout = cell(length(sub),length(meter),length(cond));
 
 for nsub = 1:length(sub)
@@ -100,31 +115,40 @@ for nsub = 1:length(sub)
             EEG = pop_resample(EEG,128); % Downsample form 512 to 128 Hz for capturing low frequency
             EEG = pop_subcomp(EEG, new_amIC(:,nsub),0,1); % only keep the motor and auditory ICs
             % icap to keep the motor and auditory ICs
-            [EEG,~] = pre_prepData('ALLEEG',EEG,pre_prepData_cfg);
-            [EEG.CAT.MODEL,~] = est_fitMVAR('ALLEEG',EEG,est_fitMVAR_cfg);
-            [EEG.CAT.Conn, ~] = est_mvarConnectivity('ALLEEG',EEG,'MODEL',EEG.CAT.MODEL,est_mvarConnectivity_cfg);            
+            [EEG,EEG.CAT.configs.pre_prepData] = pre_prepData('ALLEEG',EEG,pre_prepData_cfg);
+%            IC = est_selModelOrder('ALLEEG',EEG,'icselector',{'aic','sbc','hq','ris'},'algorithm','vieira-morf','morder',[1 30],'winlen',Winlen,'winstep',Winstep,'prctWinToSample',100,'verb',1,'plot',0);
+%            ModelOrder = ceil(mean(IC{1}.hq.popt));
+            [EEG.CAT.MODEL,EEG.CAT.configs.est_fitMVAR] = est_fitMVAR('ALLEEG',EEG,est_fitMVAR_cfg);
+%            [whitestats PC stability] = pop_est_validateMVAR(EEG,0,'checkWhiteness',true,'whitenessCriteria',{'Ljung-Box','ACF','Box-Pierce','Li-McLeod'},...
+%                                                'checkConsistency',true,'checkStability',true,'alpha',0.05,'prctWinToSample',20,'verb',2,'plot',0);
+            [EEG.CAT.Conn, EEG.CAT.configs.est_mvarConnectivity] = est_mvarConnectivity('ALLEEG',EEG,'MODEL',EEG.CAT.MODEL,est_mvarConnectivity_cfg);                    
+%            [EEG.CAT.PConn,~] = stat_surrogateGen('ALLEEG',EEG,'Mode',{'Bootstrap','NumPermutations',200});
             SIFTout{nsub,nmeter,ncond} = EEG.CAT.Conn;
              clear EEG tempEEG parts_tempEEG figureHandles
         end
     end
 end
-save SIFTout_AM4b_M30_N20_no_bc SIFTout
+save SIFTout_AM4b_M30_N20_no_bc_no_detrend SIFTout
 
 %% Run SIFT localizer: preprocessing, model validation, connectivity
 for nsub = 1:length(sub)
-            data_name = strcat(sub(nsub),'_evtag_512_clean_binica_dipfit_tap1','_e.set');
+%            data_name = strcat(sub(nsub),'_evtag_512_clean_binica_dipfit_tap1','_e.set');
+            data_name = strcat(sub(nsub),'_evtag_512_clean_binica_dipfit_sync3t','_e.set');
+
             parts_tempEEG = cellstr(split(data_name{:},'.'));
             EEG = pop_loadset('filename',data_name{:} ,'filepath', sift_path);
             EEG = pop_resample(EEG,128); % Downsample form 512 to 128 Hz for capturing low frequency
             EEG = pop_subcomp(EEG, new_amIC(:,nsub),0,1); % only keep the brain ICs
             % icap to keep the motor and auditory ICs
-            [EEG,~] = pre_prepData('ALLEEG',EEG,pre_prepData_cfg);
-            [EEG.CAT.MODEL,~] = est_fitMVAR('ALLEEG',EEG,est_fitMVAR_cfg);
-            [EEG.CAT.Conn, ~] = est_mvarConnectivity('ALLEEG',EEG,'MODEL',EEG.CAT.MODEL,est_mvarConnectivity_cfg);            
+            [EEG,EEG.CAT.configs.pre_prepData] = pre_prepData('ALLEEG',EEG,pre_prepData_cfg);
+            [EEG.CAT.MODEL,EEG.CAT.configs.est_fitMVAR] = est_fitMVAR('ALLEEG',EEG,est_fitMVAR_cfg);
+            [EEG.CAT.Conn, EEG.CAT.configs.est_mvarConnectivity] = est_mvarConnectivity('ALLEEG',EEG,'MODEL',EEG.CAT.MODEL,est_mvarConnectivity_cfg);            
+            % EEG = pop_saveset(EEG,'filename','all_SIFTout_M30_tap1.set');
+            % % for creating the shell
             SIFTout{nsub} = EEG.CAT.Conn;
              clear EEG tempEEG parts_tempEEG figureHandles
 end
-save SIFTout_M30_tap1 SIFTout
+save SIFTout_M30rep_sync3t SIFTout
 
 %% Run SIFT IMB whole trial: preprocessing, model validation, connectivity
 SIFTout = cell(length(sub),length(meter),length(cond));
@@ -148,7 +172,7 @@ save SIFTout_AM4b_M30_N20_W25s SIFTout
 
 %% Extract and plot the IMB data
 %cd('/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/sifts/SIFT_output/2020')
-load('SIFTout_AM4b_M30_N20_W25s.mat')
+% load('SIFTout_AM4b_M30_N20_W25s.mat')
 time = SIFTout{1,1,1}.erWinCenterTimes;
 freq = SIFTout{1,1,1}.freqs;
 
@@ -186,7 +210,7 @@ amflow = reshape(amflow0,[length(sub) length(meter)*length(cond) length(freq) le
 close all
 
 FOIs = find(freq == 0.5); % beat freq 2:3, theta 4:8, alpha 8:12, beta 12:30 
-FOIe = find(freq == 15); % beat freq 2:3, theta 4:8, alpha 8:12, beta 12:30 
+FOIe = find(freq == 25); % beat freq 2:3, theta 4:8, alpha 8:12, beta 12:30 
 cscale = [0 3e-3];
 
 % tf plot am flow
@@ -195,14 +219,14 @@ for ncond = 1:8
     subplot(2,4,ncond)
     imagesc(time,freq(FOIs:FOIe),squeeze(mean(amflow(:,ncond,FOIs:FOIe,:),1)));axis xy; colormap(jet); caxis(cscale);
 end
-% tf plot maflow
+%% tf plot maflow
 figure;
 for ncond = 1:8
     subplot(2,4,ncond)
     imagesc(time,freq(FOIs:FOIe),squeeze(mean(maflow(:,ncond,FOIs:FOIe,:),1)));axis xy; colormap(jet); caxis(cscale);
 end
 
-% Average across time 
+%% Average across time 
 % am flow
 figure;
 for ncond = 1:8
@@ -252,29 +276,24 @@ mean_amflow = squeeze(mean(mean(amflow(:,:,FOIs:FOIe,:),4),3));
 mean_maflow = squeeze(mean(mean(maflow(:,:,FOIs:FOIe,:),4),3));
 
 %% Extract and plot the localizer data
-load('/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/results/Localizers/SIFTs/SIFTout_M30_sync3s.mat')
+load('/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/sifts/SIFT_output/2020/SIFTout_M30rep_sync3t.mat')
 time = SIFTout{1,1,1}.erWinCenterTimes;
 freq = SIFTout{1,1,1}.freqs;
 
 aIC = [1	2	1	1	1	1	1	2	1	2	1	1	1	1	1	1	1	1	2	1	1	1	1	1	1];
 mIC = [2	1	2	2	2	2	2	1	2	1	2	2	2	2	2	2	2	2	1	2	2	2	2	2	2];
 
-for nsub = 1:length(sub)
+for nsub = 1:25
     maflow(nsub,:,:) = squeeze(SIFTout{nsub}.dDTF08(aIC(nsub),mIC(nsub),:,:));
     amflow(nsub,:,:) = squeeze(SIFTout{nsub}.dDTF08(mIC(nsub),aIC(nsub),:,:));
 end
 
-%% tf plot am flow
-FOIs = find(freq == 1); 
-FOIe = find(freq == 35);
-cscale = [0 3e-3];
+% spectral plot am flow
+SMT_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/';
+load(strcat(SMT_path,'ITI_stds.mat'));
+stable_tapper = find(stds < median(stds));
+unstable_tapper = find(stds > median(stds));
 
-figure;
-imagesc(time,freq(FOIs:FOIe),squeeze(mean(amflow(:,FOIs:FOIe,:),1)));axis xy; colormap(jet); caxis(cscale);
-figure;
-imagesc(time,freq(FOIs:FOIe),squeeze(mean(maflow(:,FOIs:FOIe,:),1)));axis xy; colormap(jet); caxis(cscale);
-figure;
-mean_am = squeeze(mean(mean(amflow(:,FOIs:FOIe,:),1),3));
-std_am = squeeze(std(mean(amflow(:,FOIs:FOIe,:),3),[],1));
-plotShadedError(freq(FOIs:FOIe),mean_am,std_am);
-xlim([0.5 30])
+figure;plot(freq,squeeze(mean(mean(amflow(stable_tapper,:,:),3),1)),'-b','Linewidth',2);
+hold on;plot(freq,squeeze(mean(mean(amflow(unstable_tapper,:,:),3),1)),'-r','Linewidth',2);
+xlim([13 30])

@@ -1,7 +1,7 @@
 %% Generate the figures and tables for R in IMB project Zoe 20210516
 % Also see plots_SMPC_all.m for the sound and tap plots 
 
-% eeglab
+eeglab
 clear 
 close all
 clc
@@ -46,7 +46,7 @@ save triple_tap_fft_out fft_out freq
 load('/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/results/Main_task/Tapping/triple_tap_fft_out')
 mean_all_subs = mean(fft_out,1);
 pool_fbin = 2; % central frequency +- 2 
-beatf = find(freq == 1.2); % change this to 2.4 Hz (beat freq), or 1.2, 0.8, 1.6 (meter freq)
+beatf = find(freq == 0.8); % change this to 2.4 Hz (beat freq), or 1.2, 0.8, 1.6 (meter freq)
 
 % max method
 [peak peakfreq] = max(fft_out(:,(beatf - pool_fbin):(beatf + pool_fbin)),[],2);
@@ -267,12 +267,12 @@ cd('/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/results/Main_task/R/Data/A
 writetable(T_amtimeplv,'amtimeplv.csv')
 
 %% SIFT
-load('/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/results/Main_task/sift/AM4b/SIFTout_AM4b_M30_N20.mat')
+load('/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/results/Main_task/sift/AM4b/SIFTout_AM4b_M270_N20_no_bc.mat')
 time = SIFTout{1,1,1}.erWinCenterTimes;
 freq = SIFTout{1,1,1}.freqs;
 
 FOIs = find(freq == 0.5); % beat freq 2:3, theta 4:8, alpha 8:12, beta 12:30 
-FOIe = find(freq == 25); % beat freq 2:3, theta 4:8, alpha 8:12, beta 12:30 
+FOIe = find(freq == 5); % beat freq 2:3, theta 4:8, alpha 8:12, beta 12:30 
 cscale = [0 3e-3];
 
 maflow0 = zeros(length(sub),length(meter),length(cond),length(freq),length(time));
@@ -290,6 +290,7 @@ for nsub = 1:length(sub)
     end
 end
 
+%
 maflow0 = permute(maflow0,[1 3 2 4 5]); % swap the order of cond and meter for extracting data
 amflow0 = permute(amflow0,[1 3 2 4 5]);
 maflow = reshape(maflow0,[length(sub) length(meter)*length(cond) length(freq) length(time)]);
@@ -331,7 +332,7 @@ subplot(1,5,5)
 mean_ma = squeeze(mean(mean(mean(maflow(:,ncond,FOIs:FOIe,:),4),1),2));
 std_ma = squeeze(std(mean(mean(maflow(:,ncond,FOIs:FOIe,:),4),2),[],1));
 plotShadedError(freq(FOIs:FOIe),mean_am,std_ma);
-xlim([0.5 25])
+xlim([0.5 5])
 view(90,90)
 set(gca,'xdir','reverse')
 
@@ -339,6 +340,29 @@ set(gca,'xdir','reverse')
 figure;imagesc(time,freq(FOIs:FOIe),squeeze(mean(mean(amflow0(:,1,:,FOIs:FOIe,:),1),3)));axis xy; colormap(jet); caxis(cscale)
 c = colorbar;
 c.Location = 'northoutside';
+
+%% bar plot for beat (20), meter rate (4, 8) dDTF08
+% average duple triple together
+beat_mean_amflow = squeeze(mean(mean(amflow0(:,:,:,20,:),3),5));
+beat_mean_maflow = squeeze(mean(mean(maflow0(:,:,:,20,:),3),5));
+
+meter_mean_amflow = squeeze(mean(mean(mean(amflow0(:,:,:,[4 8],:),3),4),5));
+meter_mean_maflow = squeeze(mean(mean(mean(maflow0(:,:,:,[4 8],:),3),4),5));
+
+
+beat_mean_amflow = squeeze(mean(amflow(:,:,20,:),4));
+beat_mean_maflow = squeeze(mean(maflow(:,:,20,:),4));
+
+meter08_mean_amflow = squeeze(mean(amflow(:,:,4,:),4));
+meter08_mean_maflow = squeeze(mean(maflow(:,:,4,:),4));
+
+meter12_mean_amflow = squeeze(mean(amflow(:,:,8,:),4));
+meter12_mean_maflow = squeeze(mean(maflow(:,:,8,:),4));
+
+am_ma_beat = [beat_mean_amflow beat_mean_maflow];
+am_ma_meter08 = [meter08_mean_amflow meter08_mean_maflow];
+am_ma_meter12 = [meter12_mean_amflow meter12_mean_maflow];
+am_ma_meter = 0.5*(am_ma_meter08 + am_ma_meter12);
 
 %% Average across freqs and times
 FOIs = find(freq == 2); % beat freq 2:3, theta 4:8, alpha 8:12, beta 12:30 
@@ -428,3 +452,108 @@ set(gca,'FontSize',18)
 xlabel('Time (ms)')
 ylabel('Relative amplitude (uV)')
 
+%% R1 SIFT model sweeping
+close all
+conditions = {'BL','PM','IM','TAP'};
+
+nmorder = Morder;
+freqs = CAT.Conn.freqs;
+
+for i = 1:4
+figure;
+plot(freqs,squeeze(mean(am_dDTF08(Morder,:,i,:),2)),'LineWidth',0.5)
+hold on 
+plot(freqs,squeeze(mean(am_dDTF08_30_300(30,:,i,:),2)),'LineWidth',4,'color','k')
+hold on 
+plot(freqs,squeeze(mean(am_dDTF08_30_300(300,:,i,:),2)),'LineWidth',4,'color','k')
+xlim([0 12])
+ylim([0 0.015])
+filename = strcat('Binary',conditions(i));
+xlabel('Frequency (Hz)'); ylabel('dDTF08'); title(filename)
+gridx([0.8, 1.2, 1.6,2.4],'k:')
+set(gca,'fontsize', 18)
+end
+
+%% R1 Mocap
+clear all
+close all
+clc
+cd('/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/results/Main_task/motion')
+% load time series
+load('time_series_MoCap_interpolation_6s_e.mat');
+% visualize markers 
+for i = 1:10
+x = squeeze(MoCap_data(1,1,1,1,i,10))*-1;
+y = squeeze(MoCap_data(1,2,1,1,i,10));
+z = squeeze(MoCap_data(1,3,1,1,i,10));
+plot3(x,y,z,'.')
+hold on
+end
+grid on 
+axis equal
+nmarker = 6;
+
+%% deal with s01 different configuration
+m4 = mocap_time_int(1,:,:,:,4,:);
+m6 = mocap_time_int(1,:,:,:,6,:);
+mocap_time_int(1,:,:,:,4,:) = m6;
+mocap_time_int(1,:,:,:,6,:) = m4;
+
+figure; plot(times,squeeze(mean(mean(mocap_time_int(:,:,1,:,nmarker,:),1),2))*1000);
+set(gca,'FontSize',18)
+xlabel('Time (s)')
+ylabel('Distance (mm)')
+xlim([-1 5])
+gridx(0,'k:')
+legend('BL','PM','IM','Tap')
+
+figure; plot(times,squeeze(mean(mean(mocap_time_int(:,:,2,:,nmarker,:),1),2))*1000);
+set(gca,'FontSize',18)
+xlabel('Time (s)')
+ylabel('Distance (mm)')
+xlim([-1 5])
+gridx(0,'k:')
+legend('BL','PM','IM','Tap')
+
+% load freq domain
+load('SSEP_MoCap_new.mat');
+
+% deal with s01 different configuration
+m4 = fft_out(1,:,:,:,4,:);
+m6 = fft_out(1,:,:,:,6,:);
+fft_out(1,:,:,:,4,:) = m6;
+fft_out(1,:,:,:,6,:) = m4;
+X = categorical({'BL','PM','IM','Tap'});
+
+meanSSEP_duple = squeeze(mean(mean(fft_out(:,:,1,:,:,:),1),2))*1000;
+meanSSEP_triple = squeeze(mean(mean(fft_out(:,:,2,:,:,:),1),2))*1000;
+
+for nmarker = 1:10
+figure;bar(X,squeeze(meanSSEP_duple(:,nmarker,25)));set(gca,'FontSize',18);ylim([0 2]);axis off % 1.2 Hz
+filename = strcat('duple_m',num2str(nmarker),'.pdf');
+saveas(gcf,filename)
+figure;bar(X,squeeze(meanSSEP_duple(:,nmarker,17)));set(gca,'FontSize',18);ylim([0 2]);axis off % 0.8 Hz
+filename = strcat('triple_m',num2str(nmarker),'.pdf');
+saveas(gcf,filename)
+
+figure;
+plot(freq,meanSSEP_duple,'LineWidth',2); 
+xlim([0.7 3])
+ylim([0 2])
+set(gca,'FontSize',18)
+xlabel('Frequency (Hz)')
+ylabel('Distance (mm)')
+gridx([1.2 2.4],'k:')
+legend('BL','PM','IM','Tap')
+
+figure;
+plot(freq,meanSSEP_triple,'LineWidth',2); 
+xlim([0.7 3])
+ylim([0 2])
+set(gca,'FontSize',18)
+xlabel('Frequency (Hz)')
+ylabel('Distance (mm)')
+gridx([0.8 2.4],'k:')
+legend('BL','PM','IM','Tap')
+    
+end

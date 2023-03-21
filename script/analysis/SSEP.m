@@ -5,11 +5,11 @@ close all
 clc
 
 %% Parameters 
-cd('/Volumes/TOSHIBA EXT/Research/Imagined_beats/real_exp/results/Main_task/SSEP/AM4b')
-addpath(genpath('/Volumes/TOSHIBA EXT/Research/Imagined_beats/script'))
+cd('/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/results/Main_task/SSEP/AM4b')
+addpath(genpath('/Volumes/TOSHIBA/Research/Imagined_beats/script'))
 sub = {'s02','s03','s04','s05','s06','s07','s08','s09','s10','s11','s12','s13','s14','s15'...
     ,'s16','s17','s18','s19','s20','s21','s22','s23','s24','s26','s27'};
-data_path = '/Volumes/TOSHIBA EXT/Research/Imagined_beats/real_exp/preprocessed/epoch/5sphases';
+data_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/preprocessed/epoch/5sphases';
 cond = {'BL','PB','IB','tap'};
 meter = {'duple','triple'};
 
@@ -33,8 +33,8 @@ IC = str2num(input('Auditory or Motor IC? (e.g. 1: aIC, 2: mIC): ','s'));
 % new_amIC(2,:) = [8	1	11	11	24	11	8	4	13	4	15	7	18	8	16	21	12	36	4	17	6	4	14	17	8];
 
 % am selection 4b
-%new_amIC(1,:) = [6	8	3	9	8	3	7	5	2	9	1	3	8	6	1	1	5	3	6	4	1	1	5	8	4];
-%new_amIC(2,:) = [8	1	11	11	10	11	7	4	13	4	15	7	18	8	16	21	12	36	4	17	6	9	14	21	8];
+new_amIC(1,:) = [6	8	3	9	8	3	7	5	2	9	1	3	8	6	1	1	5	3	6	4	1	1	5	8	4];
+new_amIC(2,:) = [8	1	11	11	10	11	7	4	13	4	15	7	18	8	16	21	12	36	4	17	6	9	14	21	8];
 
 % am selection 4c
 % new_amIC(1,:) = [6	8	3	9	8	3	7	5	2	9	1	3	8	6	1	1	5	3	6	4	1	1	5	8	4];
@@ -73,17 +73,18 @@ for nsub = 1:length(sub)
         for ncond = 1:length(cond)
             data_name = strcat(sub(nsub),'_evtag_512_clean_binica_dipfit_',meter(nmeter),'_',cond(ncond),'_e.set'); % each epoch is 5.5879 s
             EEG = pop_loadset('filename',data_name,'filepath',data_path);
-            EEG = eeg_checkset(EEG);
-            EEG.icaact = squeeze(mean(EEG.icaact(new_amIC(IC,nsub),:,:),3)); % average across trial to reduce non-phase lock activities
+            EEG = eeg_checkset(EEG,'ica');
+            EEG.icaact = reshape((EEG.icaweights*EEG.icasphere)*reshape(EEG.data,[size(EEG.data,1),size(EEG.data,2)*size(EEG.data,3)]),[size(EEG.icaweights,1),size(EEG.data,2),size(EEG.data,3)]);            
+            EEG.icaact = squeeze(mean(EEG.icaact(new_amIC(IC,nsub),1:4.5*fs,:),3)); % average across trial to reduce non-phase lock activities
             % EEG.icaact = repmat(EEG.icaact,[1,6]); % experiment about 
             [Y,freq] = calc_fft(EEG.icaact,dt); % dt = 1/fs related to your sampling rate
             P2 = abs(Y/((EEG.xmax-EEG.xmin)*fs))*2; % Y/L*2
             fft_out(nsub,nmeter,ncond,:) = P2; % unnecessary to do 1:L/2+1, calc_fft already done that
             % "Normalize" step in Nozaradan
-            for n = sub_fbin+1:size(fft_out(nsub,nmeter,ncond,:),4)-sub_fbin-1
-                fft_out_subt(nsub,nmeter,ncond,n) = fft_out(nsub,nmeter,ncond,n) - ...
-                mean(fft_out(nsub,nmeter,ncond,[n-sub_fbin, n-sub_fbin+1, n+sub_fbin-1, n+sub_fbin]));
-            end
+%             for n = sub_fbin+1:size(fft_out(nsub,nmeter,ncond,:),4)-sub_fbin-1
+%                 fft_out_subt(nsub,nmeter,ncond,n) = fft_out(nsub,nmeter,ncond,n) - ...
+%                 mean(fft_out(nsub,nmeter,ncond,[n-sub_fbin, n-sub_fbin+1, n+sub_fbin-1, n+sub_fbin]));
+%             end
         end
     end
 end
@@ -99,15 +100,15 @@ nSSEP_mIC = fft_out_subt; % 31:300 = 0.5:5 Hz
 meanSSEP_duple = squeeze(mean(rSSEP_aIC(:,1,1:4,:),1));
 meanSSEP_triple = squeeze(mean(rSSEP_aIC(:,2,1:4,:),1));
 figure;
-plot(freq,meanSSEP_duple,'LineWidth',2); 
+plot(freq,meanSSEP_triple,'LineWidth',2); 
 xlim([0.5 3])
 set(gca,'FontSize',18)
 xlabel('Frequency (Hz)')
 ylabel('Relative amplitude (uV)')
-gridx([1.2 2.4],'k:')
-%gridx([0.8 2.4],'k:')
+% gridx([1.2 2.4],'k:')
+gridx([0.8 2.4],'k:')
 legend('BL','PB','IB','Tap')
-
+save rSSEP_mIC_AM4b_no0pad_4500ms_N20 rSSEP_aIC freq
 %% Calculate fft on zero padding data
 % Input: EEG data (IC, time, trial) of given subject, meter, conditions 
 % Output: raw fft and normalized fft 
