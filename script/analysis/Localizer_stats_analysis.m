@@ -412,7 +412,7 @@ for i = 1:4
     gridx(freq([uncorrect_sig]),'y-')
     title(condition{i})
     clear mean_amflow_stable_tapper mean_amflow_unstable_tapper h p
-    xlim([13 30])
+    xlim([2 30])
     set(gca,'Fontsize',18)
     xlabel('Frequency (Hz)')
     ylim([-5e-4 12e-4])

@@ -74,8 +74,8 @@ for nsub = 1:length(names)
 %    EEG.icaact = EEG.icaweights*EEG.icasphere*EEG.data(EEG.icachansind,:); 
 %    EEG = eeg_checkset( EEG );
 % trial by trial baseline removal
-    erp_br = EEG.icaact(aIC(nsub),:,:) - mean(EEG.icaact(aIC(nsub),1:154,:));
-    erps(nsub,:) = squeeze(mean(erp_br,3));
+%    erp_br = EEG.icaact(aIC(nsub),:,:) - mean(EEG.icaact(aIC(nsub),1:154,:));
+    erps(nsub,:) = squeeze(mean(EEG.icaact,3));
 %    figure;topoplot(EEG.icawinv(:,mIC(nsub)),EEG.chanlocs)
     
     times = EEG.times;
