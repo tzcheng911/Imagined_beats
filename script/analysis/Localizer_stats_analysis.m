@@ -1,5 +1,7 @@
-eeglab
+% eeglab
 clear 
+close all
+clc
 
 SMT_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/';
 sync_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync/';
@@ -131,8 +133,8 @@ all_unstable_nonan = all_unstable_relative_phase(~isnan(all_unstable_relative_ph
 ERP_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/rdlisten/';
 SMT_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/';
 
-mIC_erp = load(strcat(SMT_path,'mIC_erp_SMT_lp60Hz.mat'));
-aIC_erp = load(strcat(ERP_path,'aIC_erp_rdlisten2_lp60Hz.mat'));
+mIC_erp = load(strcat(SMT_path,'mIC_erp_tap.mat'));
+aIC_erp = load(strcat(ERP_path,'aIC_erp_rdlisten.mat'));
 
 load(strcat(SMT_path,'ITI_stds.mat'));
 load(strcat(SMT_path,'ITI_means.mat'));
@@ -153,7 +155,15 @@ gridx(aIC_erp.times(p<0.05),'y:')
 figure;plot(mIC_erp.times,mean(mIC_stable_ERP,1));hold on; plot(mIC_erp.times,mean(mIC_unstable_ERP,1))
 gridx(mIC_erp.times(p<0.05),'y:')
 
-
+%%
+figure;shadedErrorBar(aIC_erp.times,mean(aIC_erp.erps(stable_tapper,:),1),std(aIC_erp.erps(stable_tapper,:)./sqrt(12)),'-b',1);
+hold on;shadedErrorBar(aIC_erp.times,mean(aIC_erp.erps(stable_tapper,:),1),std(aIC_erp.erps(unstable_tapper,:)./sqrt(12)),'-b',1);
+gridx
+gridy
+xlim([-300 500]) %xlim([-100 150])
+set(gca,'Fontsize',18)
+xlabel('Time (ms)')
+    
 %% Neural - ERSP
 load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3s.mat'));
 % ersp(outlier_ind,:,:) = []; % exclude outliers
