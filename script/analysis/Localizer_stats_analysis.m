@@ -348,7 +348,7 @@ SIFT_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/sifts/SIFT_output
 SMT_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/';
 load(strcat(SMT_path,'ITI_stds.mat'));
 cd(SIFT_path)
-files = dir('**/*.mat');
+files = dir('*sync3t.mat');
 names = {files.name};
 
 aIC = [1	2	1	1	1	1	1	2	1	2	1	1	1	1	1	1	1	1	2	1	1	1	1	1	1];
@@ -380,7 +380,7 @@ end
 
 % amflow_all = reshape(amflow,25,446*4);
 % maflow_all = reshape(maflow,25,446*4);
-% conditon = condition';
+condition = {'M5','M10','M20','M30','M40','M50','M60'};
 
 
 %% pool direction: stable vs. unstable tappers
@@ -391,7 +391,7 @@ for i = 1:4
     mean_unstable_tapper = squeeze(info_flow(unstable_tapper,:,i));
     figure;shadedErrorBar(freq,mean_stable_tapper,{@mean,@std},'-b');
     hold on;shadedErrorBar(freq,mean_unstable_tapper,{@mean,@std},'-r');
-    title(condition{i})
+    title()
     [h,p] = ttest2(mean_stable_tapper,mean_unstable_tapper);
     uncorrect_sig = find(p < 0.05);
     gridx(freq([uncorrect_sig]),'y-')
@@ -401,7 +401,7 @@ for i = 1:4
 end
 
 %% amflow: stable vs. unstable tappers
-for i = 1:4
+for i = 1:size(amflow,3)
     figure;shadedErrorBar(freq,squeeze(amflow(stable_tapper,:,i)),{@mean,@std},'-b',1);
     hold on;shadedErrorBar(freq,squeeze(amflow(unstable_tapper,:,i)),{@mean,@std},'-r',1);
     title(condition{i})
@@ -412,15 +412,14 @@ for i = 1:4
     gridx(freq([uncorrect_sig]),'y-')
     title(condition{i})
     clear mean_amflow_stable_tapper mean_amflow_unstable_tapper h p
-    xlim([2 30])
+    xlim([13 30])
     set(gca,'Fontsize',18)
     xlabel('Frequency (Hz)')
-    ylim([-5e-4 12e-4])
-
+    ylim([-0.5e-3 2.5e-3])
 end
 
 %% maflow: stable vs. unstable tappers
-for i = 1:4
+for i = 1:size(amflow,3)
     figure;shadedErrorBar(freq,squeeze(maflow(stable_tapper,:,i)),{@mean,@std},'-b',1);
     hold on;shadedErrorBar(freq,squeeze(maflow(unstable_tapper,:,i)),{@mean,@std},'-r',1);
     title(condition{i})
@@ -434,9 +433,21 @@ for i = 1:4
     xlim([13 30])
     set(gca,'Fontsize',18)
     xlabel('Frequency (Hz)')
-    ylim([-5e-4 12e-4])
-
+%    ylim([-5e-4 25e-4])
 end
+
+%% Get the correlations 
+for i = 1:size(amflow,3)
+    for freqs = 1:size(amflow,2)
+        [r(i,freqs,:), p(i,freqs,:)] = corr(stds',squeeze(amflow(:,freqs,i)));
+    end
+end
+
+figure;plot(freq,p,'LineWidth',2)
+legend('M5','M10','M20','M30','M40','M50','M60');
+xlabel('Frequency (Hz)')
+ylabel('Pearson correlation coefficient')
+title('maflow')
 
 %% stable tappers: amflow vs. maflow
 for i = 1:4

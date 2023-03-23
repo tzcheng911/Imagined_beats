@@ -1,6 +1,6 @@
 %eeglab
-clear
-clc
+% clear
+% clc
 
 % File path 
 addpath(genpath('/Volumes/TOSHIBA/Research/Imagined_beats/script'))
@@ -21,9 +21,9 @@ new_amIC(1,:) = [6	8	3	9	8	3	7	5	2	9	1	3	8	6	1	1	5	3	6	4	1	1	5	8	4];
 new_amIC(2,:) = [8	1	11	11	10	11	8	4	13	4	15	7	18	8	16	21	12	36	4	17	6	9	14	21	8];
 
 %% Extract localizer individual's ERP
-IC = 1; % 1: aIC; 2: mIC
+IC = 2; % 1: aIC; 2: mIC
 
-for nsub = 1:length(names)
+for nsub = 1:2
     tempEEG = names{nsub};
     parts_cleanEEG = cellstr(split(tempEEG,'.'));
     EEG = pop_loadset('filename',tempEEG ,'filepath', EEG_path); % epoched data
@@ -39,9 +39,8 @@ figure;plot(times,erps);hold on;plot(times,mean(erps,1),'LineWidth',3,'color','k
 %% load a much smaller file to save some time
 % eeglab
 clear
-close all
 clc
-
+%%
 SMT_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/';
 load(strcat(SMT_path,'ITI_stds.mat'));
 load(strcat(SMT_path,'ITI_means.mat'));
@@ -66,6 +65,7 @@ aIC = [1	2	1	1	1	1	1	2	1	2	1	1	1	1	1	1	1	1	2	1	1	1	1	1	1];
 mIC = [2	1	2	2	2	2	2	1	2	1	2	2	2	2	2	2	2	2	1	2	2	2	2	2	2];
 
 %% Extract localizer individual's ERP
+reverse_polarity = [2 3 5 9 11 15 17 19 20 24]; % these are the right reverse as in STUDY
 for nsub = 1:length(names)
     tempEEG = names{nsub};
     parts_cleanEEG = cellstr(split(tempEEG,'.'));
@@ -73,16 +73,32 @@ for nsub = 1:length(names)
 %    EEG = pop_eegfiltnew(EEG, 'hicutoff',60); % Note: this is only perform on EEG.data but not EEG.icaact
 %    EEG.icaact = EEG.icaweights*EEG.icasphere*EEG.data(EEG.icachansind,:); 
 %    EEG = eeg_checkset( EEG );
-% trial by trial baseline removal
-%    erp_br = EEG.icaact(aIC(nsub),:,:) - mean(EEG.icaact(aIC(nsub),1:154,:));
-    erps(nsub,:) = squeeze(mean(EEG.icaact,3));
-%    figure;topoplot(EEG.icawinv(:,mIC(nsub)),EEG.chanlocs)
+    if ismember(nsub,reverse_polarity) 
+        erps(nsub,:) = -1*squeeze(mean(EEG.icaact(aIC(nsub),:,:),3));
+    else
+        erps(nsub,:) = squeeze(mean(EEG.icaact(aIC(nsub),:,:),3));
+    end
+%    figure;topoplot(EEG.icawinv(:,aIC(nsub)),EEG.chanlocs)
     
     times = EEG.times;
     clear EEG parts_cleanEEG tempEEG
 end
 
-% save mIC_erp_SMT_lp60Hz erps times
+save aIC_erp_rdlisten erps times
 figure;plot(times,erps);hold on;plot(times,mean(erps,1),'LineWidth',3,'color','k');xlim([-300 500])
-figure;plot(times,mean(erps(stable_tapper,:),1)-mean(erps(stable_tapper,1),1));hold on; plot(times,mean(erps(unstable_tapper,:),1)-mean(erps(unstable_tapper,1),1));
+figure;plot(times,mean(erps(stable_tapper,:),1),'LineWidth',2);hold on; plot(times,mean(erps(unstable_tapper,:),1),'LineWidth',3);
+legend('Stable','Unstable')
+xlim([-300 500])
+ylabel('Amplitude')
+xlabel('Time (ms)')
 
+
+
+%%
+%erps(23,:) = erps(23,:)*-1;
+
+figure;plot(times,mean(erps(stable_tapper,:),1),'LineWidth',2);hold on; plot(times,mean(erps(unstable_tapper,:),1),'LineWidth',3);
+legend('Stable','Unstable')
+xlim([-300 500])
+ylabel('Amplitude')
+xlabel('Time (ms)')
