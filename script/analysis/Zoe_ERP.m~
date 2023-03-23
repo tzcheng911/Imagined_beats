@@ -66,7 +66,7 @@ mIC = [2	1	2	2	2	2	2	1	2	1	2	2	2	2	2	2	2	2	1	2	2	2	2	2	2];
 
 %% Extract localizer individual's ERP
 reverse_polarity_aIC = [2 3 5 9 11 15 17 19 20 24]; % these are the right reverse as in STUDY
-reverse_polarity_mIC = [2 3 19 20 23]; % these are the right reverse as in STUDY
+reverse_polarity_mIC = [2 3 5 9 11 15 17 19 20 24]; % these are the right reverse as in STUDY
 
 for nsub = 1:length(names)
     tempEEG = names{nsub};
@@ -75,12 +75,12 @@ for nsub = 1:length(names)
 %    EEG = pop_eegfiltnew(EEG, 'hicutoff',60); % Note: this is only perform on EEG.data but not EEG.icaact
 %    EEG.icaact = EEG.icaweights*EEG.icasphere*EEG.data(EEG.icachansind,:); 
 %    EEG = eeg_checkset( EEG );
-    if ismember(nsub,reverse_polarity_mIC) 
+    if ismember(nsub,reverse_polarity) 
         erps(nsub,:) = -1*squeeze(mean(EEG.icaact(mIC(nsub),:,:),3));
     else
         erps(nsub,:) = squeeze(mean(EEG.icaact(mIC(nsub),:,:),3));
     end
-%    figure;topoplot(EEG.icawinv(:,mIC(nsub)),EEG.chanlocs)
+    figure;topoplot(EEG.icawinv(:,mIC(nsub)),EEG.chanlocs)
     title(strcat('sub = ',num2str(nsub)))
     
     times = EEG.times;

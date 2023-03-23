@@ -50,7 +50,7 @@ end
 %% relationship between async and beta power 
 sorted_by = stds; % stds or cv of the Tap Localizer or si (mean relphase) of the SMS, or trial number included
 [~, sort_ind] = sort(sorted_by); 
-IC = 2; % auditory or motor IC
+IC = 1; % auditory or motor IC
 intercept = zeros(25,410);
 
 for nsub = 1:length(names)
@@ -68,12 +68,12 @@ for nsub = 1:length(names)
 
     for t = 1:size(outdata,1)
         [P,S] = polyfit(outvar,outdata(t,:),1); % put async as x and beta power as y is more interpretable with erspimage 
-        slope(sort_ind(nsub),t) = P(1); % get the intercept P(1) or intercept P(2) of the linear fit % original order
+        slope(sort_ind(nsub),t) = P(1); % get the slope P(1) or intercept P(2) of the linear fit % original order
         clear P
     end
     clear outdata outvar
 end        
-% save('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync/aB_intercept.mat','intercept')
+% save('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync/aB_lm.mat','slope')
 
 %% ploting 
 load('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync/aB_lm.mat')
