@@ -79,25 +79,43 @@ for nsub = 1:25
     clear N relphase tmp_se
 end
 
-%% Correlatoin between log(cv) and SI: if exlcuding outliers 
+%% Correlatoin between log(cv) and SI
 isoutlier(log(cv))
 cv = stds./means;
-cv(2) = [];
-si(2) = [];
+% cv(2) = [];
+% si(2) = [];
 [r,p] = corrcoef(si,log(cv))
 figure;plot(log(cv), si, '.')
 
+[r,p] = corrcoef(si,log(stds))
+figure;plot(log(stds), si, '.')
+
 %% plot the stable and unstable relphase distribution
-load(strcat(sync_path,'calc_tap_output'))
+%%
+all_relative_phase = [];
+for i = 1:length(relative_phase)
+    tmp = relative_phase{i};
+%    tmp = tap_results{1,unstable_tapper(i)}.rp;
+%    figure;histogram(tmp,100,'Facecolor','blue','FaceAlpha',0.5);gridx([0],'k:');xlim([-0.5 0.5])
+    all_relative_phase = [all_relative_phase,tmp];
+    clear tmp
+end
+
+nanmean(all_relative_phase)*600 % times 600 to convert rp to ms
+nanstd(all_relative_phase)*600
+%%
+load(strcat(sync_path,'calc_tap_output')) % .rp is the same as the relative_phase
 all_stable_relative_phase = [];
 for i = 1:length(stable_tapper)
-    tmp = relative_phase{stable_tapper(i)};
-%    tmp = tap_results{1,stable_tapper(i)}.rp;
+%    tmp = relative_phase{stable_tapper(i)};
+    tmp = tap_results{1,stable_tapper(i)}.rp;
     all_stable_relative_phase = [all_stable_relative_phase,tmp];
 %    figure;histogram(tmp,100,'Facecolor','red','FaceAlpha',0.5);gridx([0],'k:');xlim([-0.5 0.5])
     clear tmp
 end
-
+nanmean(all_stable_relative_phase)*600 % times 600 to convert rp to ms
+nanstd(all_stable_relative_phase)*600
+%%
 all_unstable_relative_phase = [];
 for i = 1:length(unstable_tapper)
     tmp = relative_phase{unstable_tapper(i)};
@@ -106,7 +124,9 @@ for i = 1:length(unstable_tapper)
     all_unstable_relative_phase = [all_unstable_relative_phase,tmp];
     clear tmp
 end
-
+nanmean(all_unstable_relative_phase)*600 % times 600 to convert rp to ms
+nanstd(all_unstable_relative_phase)*600
+%%
 figure;histogram(all_unstable_relative_phase,'BinWidth',0.01,'Facecolor','red','FaceAlpha',0.5)
 hold on;histogram(all_stable_relative_phase,'BinWidth',0.01,'Facecolor','blue','FaceAlpha',0.5)
 gridx([0],'k:')
@@ -118,8 +138,6 @@ xlabel('Relative phases')
 ylabel('Frequency')
 set(gca,'FontSize',18)
 
-
-
 %% significant 
 [h,p,ci,stats] = ttest2(all_unstable_relative_phase,all_stable_relative_phase) % * difference between the group
 meanEffectSize(all_unstable_relative_phase,all_stable_relative_phase, 'Effect' ,'cohen')
@@ -127,42 +145,44 @@ meanEffectSize(all_unstable_relative_phase,all_stable_relative_phase, 'Effect' ,
 all_stable_nonan = all_stable_relative_phase(~isnan(all_stable_relative_phase));
 all_unstable_nonan = all_unstable_relative_phase(~isnan(all_unstable_relative_phase));
 
+[h,p,ci,stats] = ttest2(all_stable_nonan,all_unstable_nonan) % * difference between the group
 [p,stats] = circ_wwtest(all_unstable_nonan*2*pi,all_stable_nonan*2*pi) % * difference between the group
 
 %% Neural - ERP
 ERP_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/rdlisten/';
 SMT_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/';
 
-mIC_erp = load(strcat(SMT_path,'mIC_erp_tap.mat'));
-aIC_erp = load(strcat(ERP_path,'aIC_erp_rdlisten.mat'));
+mIC_erp = load(strcat(SMT_path,'mIC_erp_tap1_lp60Hz.mat'));
+aIC_erp = load(strcat(ERP_path,'aIC_erp_rdlisten2_lp60Hz.mat'));
 
 load(strcat(SMT_path,'ITI_stds.mat'));
 load(strcat(SMT_path,'ITI_means.mat'));
 stable_tapper = find(stds < median(stds)); % use std of ITI
 unstable_tapper = find(stds > median(stds)); % use std of ITI
 
-aIC_stable_ERP = aIC_erp.erps(stable_tapper,:);
-aIC_unstable_ERP = aIC_erp.erps(unstable_tapper,:);
-
-mIC_stable_ERP = mIC_erp.erps(stable_tapper,:);
-mIC_unstable_ERP = mIC_erp.erps(unstable_tapper,:);
-
-[h,p,ci,stats] = ttest2(aIC_stable_ERP,aIC_unstable_ERP); % * difference between the group
-figure;plot(aIC_erp.times,mean(aIC_stable_ERP,1));hold on; plot(aIC_erp.times,mean(aIC_unstable_ERP,1))
-gridx(aIC_erp.times(p<0.05),'y:')
-
-[h,p,ci,stats] = ttest2(mIC_stable_ERP,mIC_unstable_ERP); % * difference between the group
-figure;plot(mIC_erp.times,mean(mIC_stable_ERP,1));hold on; plot(mIC_erp.times,mean(mIC_unstable_ERP,1))
-gridx(mIC_erp.times(p<0.05),'y:')
-
-%%
-figure;shadedErrorBar(aIC_erp.times,mean(aIC_erp.erps(stable_tapper,:),1),std(aIC_erp.erps(stable_tapper,:)./sqrt(12)),'-b',1);
-hold on;shadedErrorBar(aIC_erp.times,mean(aIC_erp.erps(stable_tapper,:),1),std(aIC_erp.erps(unstable_tapper,:)./sqrt(12)),'-b',1);
+figure;shadedErrorBar(aIC_erp.times,mean(aIC_erp.erps(stable_tapper,:),1),std(aIC_erp.erps(stable_tapper,:)./sqrt(12)),'-b',0);
+hold on;shadedErrorBar(aIC_erp.times,mean(aIC_erp.erps(unstable_tapper,:),1),std(aIC_erp.erps(unstable_tapper,:)./sqrt(12)),'-r',0);
 gridx
 gridy
-xlim([-300 500]) %xlim([-100 150])
+xlim([-100 300]) 
 set(gca,'Fontsize',18)
 xlabel('Time (ms)')
+
+[h,p,ci,stats] = ttest2(aIC_erp.erps(stable_tapper,:),aIC_erp.erps(unstable_tapper,:)); % * difference between the group
+hold on; gridx(aIC_erp.times(p<0.05),'y:')
+
+% remember to reverse polarity in motor potential
+figure;shadedErrorBar(mIC_erp.times,mean(-1.*mIC_erp.erps(stable_tapper,:),1),std(-1.*mIC_erp.erps(stable_tapper,:)./sqrt(12)),'-b',0);
+hold on;shadedErrorBar(mIC_erp.times,mean(-1.*mIC_erp.erps(unstable_tapper,:),1),std(-1.*mIC_erp.erps(unstable_tapper,:)./sqrt(12)),'-r',0);
+gridx
+gridy
+xlim([-100 150])
+set(gca,'Fontsize',18)
+xlabel('Time (ms)')
+
+[h,p,ci,stats] = ttest2(mIC_erp.erps(stable_tapper,:),mIC_erp.erps(unstable_tapper,:)); % * difference between the group
+hold on; gridx(mIC_erp.times(p<0.05),'y:')
+
     
 %% Neural - ERSP
 load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3s.mat'));
@@ -222,6 +242,58 @@ aIC_sync3s = load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3s'));
 mIC_sync3s = load(strcat(sync_path,'mIC_averagebaslined_ersp_itc_sync3s'));
 aIC_sync3t = load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3t'));
 mIC_sync3t = load(strcat(sync_path,'mIC_averagebaslined_ersp_itc_sync3t'));
+
+% one-sample ttest to test against zero: early TOI
+% stable tappers
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_tap.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_tap.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_rdlisten.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_rdlisten.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3t.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3t.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3s.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3s.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+% unstable tappers
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_tap.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_tap.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_rdlisten.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_rdlisten.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3t.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3t.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3s.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3s.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
+
+% one-sample ttest to test against zero: late TOI
+% stable tappers
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_tap.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_tap.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_rdlisten.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_rdlisten.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3t.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3t.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3s.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3s.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+% unstable tappers
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_tap.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_tap.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_rdlisten.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_rdlisten.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3t.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3t.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+
+[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3s.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
+[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3s.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
 
 % ERD TOI *** for the both aIC and mIC between localizer tasks
 % overall aIC activity of Sound vs. Tap localizer 
