@@ -94,7 +94,7 @@ figure;plot(log(cv), si, '.')
 [r,p] = corrcoef(si,log(stds))
 figure;plot(log(stds), si, '.')
 
-%% A bunch correlations between SMT and SMS: wow it is really not significant 
+%% A bunch correlations between SMT and SMS
 [r,p] = corrcoef(mean_rp,stds) % could also see circular se and sd (cse, csd) and circular dispersion (i.e. delta)
 [r,p] = corrcoef(stds_rp,stds) % could also see circular se and sd (cse, csd) and circular dispersion (i.e. delta)
 [r,p] = corrcoef(si,stds)
@@ -106,15 +106,10 @@ idex = find(~isoutlier(stds,'quartiles'));
 [r,p] = corrcoef(si(idex),stds(idex))
 
 % if log transform
-[r,p] = corrcoef(mean_rp,log(stds)) % could also see circular se and sd (cse, csd) and circular dispersion (i.e. delta)
-[r,p] = corrcoef(stds_rp,log(stds)) % could also see circular se and sd (cse, csd) and circular dispersion (i.e. delta)
-[r,p] = corrcoef(si,log(stds))
 
-[r,p] = corrcoef(mean_rp(idex),log(stds(idex))) % could also see circular se and sd (cse, csd) and circular dispersion (i.e. delta)
-[r,p] = corrcoef(stds_rp(idex),log(stds(idex))) % could also see circular se and sd (cse, csd) and circular dispersion (i.e. delta)
-[r,p] = corrcoef(si(idex),log(stds(idex)))
 
 %% plot the stable and unstable relphase distribution
+%%
 all_relative_phase = [];
 for i = 1:length(relative_phase)
     tmp = relative_phase{i};
