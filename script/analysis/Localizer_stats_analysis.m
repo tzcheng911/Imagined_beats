@@ -194,7 +194,7 @@ xlabel('Time (ms)')
 [h,p,ci,stats] = ttest2(aIC_erp.erps(stable_tapper,:),aIC_erp.erps(unstable_tapper,:)); % * difference between the group
 hold on; gridx(aIC_erp.times(p<0.05),'y:')
 
-% remember to reverse polarity in motor potential
+% remember to reverse polarity for conventional motor potential
 figure;shadedErrorBar(mIC_erp.times,mean(-1.*mIC_erp.erps(stable_tapper,:),1),std(-1.*mIC_erp.erps(stable_tapper,:)./sqrt(12)),'-b',0);
 hold on;shadedErrorBar(mIC_erp.times,mean(-1.*mIC_erp.erps(unstable_tapper,:),1),std(-1.*mIC_erp.erps(unstable_tapper,:)./sqrt(12)),'-r',0);
 gridx
@@ -391,14 +391,9 @@ mIC_tap_us_avg = squeeze(mean(mean(mIC_tap.ersp(unstable_tapper,FOI(1):FOI(end),
 [h,p,ci,stats] = ttest(mIC_rdlisten_us_avg-mIC_tap_us_avg)
 
 %% write them into data form then save to excel ersp_all.csv
-SMT_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/';
-load(strcat(SMT_path,'ITI_stds.mat'));
 cd('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/ersp');
-files = dir('**/*.mat');
+files = dir('**/*.mat'); % will give en error if ersps.mat is already in the folder
 names = {files.name};
-
-stable_tapper = find(stds < median(stds));
-unstable_tapper = find(stds > median(stds));
 
 for nfile = 1:length(names)
     name  = names{nfile};
@@ -408,12 +403,14 @@ for nfile = 1:length(names)
     TOI = [72 174;226 327]; % [-100 100] ERD [200 400] ERS
     for nt = 1:2
         parts_name = cellstr(split(name ,{'_','.'}));
-        ersp(nfile,nt,:) = squeeze(mean(mean(data.ersp(:,FOI(1):FOI(end),TOI(nt,1):TOI(nt,2)),2),3));
+        ersp(nfile,nt,:) = squeeze(mean(mean(data.ersp(:,FOI(1):FOI(2),TOI(nt,1):TOI(nt,2)),2),3));
         condition(nfile,nt) = string(strcat(parts_name{1},'.',parts_name{5},'.T',num2str(nt)));
     end
 end
-ersp_all = reshape(ersp,16,25)';
-conditon = condition';
+ersp_all = reshape(ersp,16,25)'; % make sure index is right!
+condition = condition(:); % make sure index is right!
+
+save ersps ersp_all condition
 
 %% Regression 
 load(strcat(sync_path,'linear_reg_mIC_sync3t_ersp.mat'))
