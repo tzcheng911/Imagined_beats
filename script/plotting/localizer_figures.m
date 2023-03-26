@@ -88,18 +88,18 @@ load(strcat(SMT_path,'ITI_stds.mat'));
 stable_tapper = find(stds < median(stds));
 unstable_tapper = find(stds > median(stds));
 
-load(strcat(rdlisten_path,'aIC_averagebaslined_ersp_itc_rdlisten2'));
-load(strcat(rdlisten_path,'mIC_averagebaslined_ersp_itc_rdlisten2'));
-load(strcat(SMT_path,'aIC_averagebaslined_ersp_itc_tap1'));
-load(strcat(SMT_path,'mIC_averagebaslined_ersp_itc_tap1'));
-load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3s'));
-load(strcat(sync_path,'mIC_averagebaslined_ersp_itc_sync3s'));
-load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3t'));
-load(strcat(sync_path,'mIC_averagebaslined_ersp_itc_sync3t'));
+% load(strcat(rdlisten_path,'aIC_averagebaslined_ersp_itc_rdlisten2'));
+ load(strcat(rdlisten_path,'mIC_averagebaslined_ersp_itc_rdlisten2'));
+% load(strcat(SMT_path,'aIC_averagebaslined_ersp_itc_tap1'));
+% load(strcat(SMT_path,'mIC_averagebaslined_ersp_itc_tap1'));
+% load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3s'));
+% load(strcat(sync_path,'mIC_averagebaslined_ersp_itc_sync3s'));
+% load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3t'));
+% load(strcat(sync_path,'mIC_averagebaslined_ersp_itc_sync3t'));
 
-figure;imagesc(times,freqs,squeeze(mean(ersp,1)));axis xy; colormap(jet);caxis([0.9 1.1]);  colorbar
-figure;imagesc(times,freqs,squeeze(mean(ersp(stable_tapper,:,:),1))); axis xy; colormap(jet);caxis([0.9 1.1]);  colorbar
-figure;imagesc(times,freqs,squeeze(mean(ersp(unstable_tapper,:,:),1))); axis xy; colormap(jet); caxis([0.9 1.1]); colorbar
+figure;imagesc(times,freqs,squeeze(mean(average_ERSP_mIC,1)));axis xy; colormap(jet);caxis([0.9 1.1]);  colorbar
+% figure;imagesc(times,freqs,squeeze(mean(ersp(stable_tapper,:,:),1))); axis xy; colormap(jet);caxis([0.9 1.1]);  colorbar
+% figure;imagesc(times,freqs,squeeze(mean(ersp(unstable_tapper,:,:),1))); axis xy; colormap(jet); caxis([0.9 1.1]); colorbar
 
 %% Figure 6 ERSP bar plot
 load('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/ersp/ersps.mat')

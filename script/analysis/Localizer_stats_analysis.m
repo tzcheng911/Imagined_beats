@@ -208,10 +208,10 @@ hold on; gridx(mIC_erp.times(p<0.05),'y:')
 
     
 %% Neural - ERSP
-load(strcat(sync_path,'mIC_averagebaslined_ersp_itc_sync3s.mat'));
+load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3s.mat'));
 % ersp(outlier_ind,:,:) = []; % exclude outliers
 
-FOI = [find(freqs == 13) find(freqs == 25,1)];
+FOI = [find(freqs == 13) find(freqs == 35,1)];
 TOI = [72 174;226 327]; % [-100 100] ERD [200 400] ERS
 
 % median split between stable and unstable tappers: stds or cv
