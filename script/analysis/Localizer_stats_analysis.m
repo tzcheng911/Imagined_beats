@@ -7,8 +7,6 @@ SMT_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/';
 sync_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync/';
 rdlisten_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/rdlisten/';
 SIFT_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SIFTs/';
-addpath(genpath('/Volumes/TOSHIBA/Research/Imagined_beats/script'))
-
 %% Behavioral
 load(strcat(SMT_path,'ITI_stds.mat'));
 load(strcat(SMT_path,'ITI_means.mat'));
@@ -25,9 +23,9 @@ load(strcat(sync_path,'relative_phase.mat'));
 % mean_relative_phase(outlier_ind) = [];
 % stds(outlier_ind) = [];
 
-'Mean Relphase' 
-rad2deg(circ_mean(theta'))
-rad2deg(circ_std(theta'))
+% 'Mean Relphase' 
+% rad2deg(circ_mean(theta'))
+% rad2deg(circ_std(theta'))
 
  cv = stds./means;
 % stable_tapper = find(cv < median(cv)); % use cv of ITI
@@ -208,12 +206,65 @@ hold on; gridx(mIC_erp.times(p<0.05),'y:')
 
     
 %% Neural - ERSP
+%% write them into data form then save to excel ersp_all.csv
+clear
+cd('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/ersp');
+files = dir('**/*.mat'); % will give en error if ersps.mat is already in the folder
+names = {files.name};
+
+for nfile = 1:length(names)
+    name  = names{nfile};
+    data = load(name);
+    
+    FOI = [find(data.freqs == 13) find(data.freqs == 35,1)];
+    TOI = [72 174;225 328]; % ~[-100 100] ERD ~[200 400] ERS
+    for nt = 1:2
+        parts_name = cellstr(split(name ,{'_','.'}));
+        ersp(nfile,nt,:) = squeeze(mean(mean(data.ersp(:,FOI(1):FOI(2),TOI(nt,1):TOI(nt,2)),2),3));
+        condition(nfile,nt) = string(strcat(parts_name{1},'.',parts_name{5},'.T',num2str(nt)));
+    end
+end
+ersp_all = reshape(ersp,16,25)'; % make sure index is right!
+condition = condition(:); % make sure index is right!
+
+save ersps ersp_all condition
+
+%%
+load('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/ersp/ersps.mat')
+load(strcat(SMT_path,'ITI_stds.mat'));
+
+stable_tapper = find(stds < median(stds));
+unstable_tapper = find(stds > median(stds));
+
+% sort the order to match the paper figure
+condition = condition([4,1,3,2,8,5,7,6,12,9,11,10,16,13,15,14]);
+ersp_all = ersp_all(:,[4,1,3,2,8,5,7,6,12,9,11,10,16,13,15,14]);
+
+% convert to % signal change
+ersp_all = ersp_all-1;
+
+% do the one-sample, paired and two-sample ttests here 
+% one-sample ttest against 0
+[h,p,ci,stats] = ttest(ersp_all(stable_tapper,:))
+[h,p,ci,stats] = ttest(ersp_all(unstable_tapper,:))
+
+% paired ttest
+[h,p,ci,stats] = ttest(ersp_all(stable_tapper,10)-ersp_all(stable_tapper,12))
+[h,p,ci,stats] = ttest(ersp_all(unstable_tapper,10)-ersp_all(unstable_tapper,12))
+
+% two sample ttests
+[h,p,ci,stats] = ttest2(ersp_all(stable_tapper,1), ersp_all(unstable_tapper,1))
+for i = 1:16
+    [h,p,ci,stats] = ttest2(ersp_all(stable_tapper,i), ersp_all(unstable_tapper,i))
+end
+%%
 load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3s.mat'));
 % ersp(outlier_ind,:,:) = []; % exclude outliers
 
 FOI = [find(freqs == 13) find(freqs == 35,1)];
-TOI = [72 174;226 327]; % [-100 100] ERD [200 400] ERS
-
+TOI = [72 174;225 328]; % ~[-100 100] ERD ~[200 400] ERS
+freqs(FOI)
+times(TOI)
 % median split between stable and unstable tappers: stds or cv
 stable_tapper = find(stds < median(stds));
 unstable_tapper = find(stds > median(stds));
@@ -240,196 +291,14 @@ figure;imagesc(times,freqs,squeeze(mean(ersp,1)));axis xy; colormap(jet);caxis([
 figure;imagesc(times,freqs,squeeze(mean(ersp(stable_tapper,:,:),1))); axis xy; colormap(jet);caxis([0.9 1.1]);  colorbar
 figure;imagesc(times,freqs,squeeze(mean(ersp(unstable_tapper,:,:),1))); axis xy; colormap(jet); caxis([0.9 1.1]); colorbar
 
-%% cohen's d for each pixel: very slow 
-d = [];
-for nf = 1:size(ersp,2)
-    for nt = 1:size(ersp,3)
-        stable = squeeze(ersp(stable_tapper,nf,nt));
-        unstable = squeeze(ersp(unstable_tapper,nf,nt));
-%         sp = sqrt((var(stable)+var(unstable))/2);
-%         d = (mean(stable)-mean(unstable))/sp;
-        tmp = meanEffectSize(stable,unstable,'Effect' ,'cohen');
-        d(nf,nt) = tmp.Effect; % corrected Hedge's g for small sample size 
-        clear tmp
-    end
-    fprintf('Just finished iteration #%d\n', nf);
-end
-save cohenD_aIC_sync3s.mat freqs times d
-
-%% between Tap and Sound localizer
-aIC_rdlisten = load(strcat(rdlisten_path,'aIC_averagebaslined_ersp_itc_rdlisten2'));
-mIC_rdlisten = load(strcat(rdlisten_path,'mIC_averagebaslined_ersp_itc_rdlisten2'));
-aIC_tap = load(strcat(SMT_path,'aIC_averagebaslined_ersp_itc_tap1'));
-mIC_tap = load(strcat(SMT_path,'mIC_averagebaslined_ersp_itc_tap1'));
-aIC_sync3s = load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3s'));
-mIC_sync3s = load(strcat(sync_path,'mIC_averagebaslined_ersp_itc_sync3s'));
-aIC_sync3t = load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3t'));
-mIC_sync3t = load(strcat(sync_path,'mIC_averagebaslined_ersp_itc_sync3t'));
-
-% one-sample ttest to test against zero: early TOI
-% stable tappers
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_tap.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_tap.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_rdlisten.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_rdlisten.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3t.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3t.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3s.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3s.ersp(stable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-% unstable tappers
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_tap.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_tap.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_rdlisten.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_rdlisten.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3t.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3t.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3s.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3s.ersp(unstable_tapper,FOI(1):FOI(2),TOI(1,1):TOI(1,2)),2),3))-1)
-
-% one-sample ttest to test against zero: late TOI
-% stable tappers
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_tap.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_tap.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_rdlisten.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_rdlisten.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3t.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3t.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3s.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3s.ersp(stable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-% unstable tappers
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_tap.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_tap.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_rdlisten.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_rdlisten.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3t.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3t.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-
-[h,p,ci,stats] = ttest(squeeze(mean(mean(aIC_sync3s.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-[h,p,ci,stats] = ttest(squeeze(mean(mean(mIC_sync3s.ersp(unstable_tapper,FOI(1):FOI(2),TOI(2,1):TOI(2,2)),2),3))-1)
-
-% ERD TOI *** for the both aIC and mIC between localizer tasks
-% overall aIC activity of Sound vs. Tap localizer 
-aIC_rdlisten_avg = squeeze(mean(mean(aIC_rdlisten.ersp(:,FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3));
-aIC_tap_avg = squeeze(mean(mean(aIC_tap.ersp(:,FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3));
-[h,p,ci,stats] = ttest(aIC_rdlisten_avg-aIC_tap_avg)
-meanEffectSize(aIC_rdlisten_avg-aIC_tap_avg,'Effect' ,'cohen')
-
-% overall mIC activity of Sound vs. Tap localizer 
-mIC_rdlisten_avg = squeeze(mean(mean(mIC_rdlisten.ersp(:,FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3));
-mIC_tap_avg = squeeze(mean(mean(mIC_tap.ersp(:,FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3));
-[h,p,ci,stats] = ttest(mIC_rdlisten_avg-mIC_tap_avg)
-meanEffectSize(mIC_rdlisten_avg-mIC_tap_avg,'Effect' ,'cohen')
-
-% ERS TOI *** for the both aIC and mIC between localizer tasks
-% overall aIC activity of Sound vs. Tap localizer 
-aIC_rdlisten_avg = squeeze(mean(mean(aIC_rdlisten.ersp(:,FOI(1):FOI(end),TOI(2,1):TOI(2,2)),2),3));
-aIC_tap_avg = squeeze(mean(mean(aIC_tap.ersp(:,FOI(1):FOI(end),TOI(2,1):TOI(2,2)),2),3));
-[h,p,ci,stats] = ttest(aIC_rdlisten_avg-aIC_tap_avg)
-meanEffectSize(aIC_rdlisten_avg-aIC_tap_avg,'Effect' ,'cohen')
-
-% overall mIC activity of Sound vs. Tap localizer 
-mIC_rdlisten_avg = squeeze(mean(mean(mIC_rdlisten.ersp(:,FOI(1):FOI(end),TOI(2,1):TOI(2,2)),2),3));
-mIC_tap_avg = squeeze(mean(mean(mIC_tap.ersp(:,FOI(1):FOI(end),TOI(2,1):TOI(2,2)),2),3));
-[h,p,ci,stats] = ttest(mIC_rdlisten_avg-mIC_tap_avg)
-meanEffectSize(mIC_rdlisten_avg-mIC_tap_avg,'Effect' ,'cohen')
-
-% pairwise comparison aIC activity of Sound vs. Tap localizer in stable group
-% ERD stable
-aIC_rdlisten_s_avg = squeeze(mean(mean(aIC_rdlisten.ersp(stable_tapper,FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3));
-aIC_tap_s_avg = squeeze(mean(mean(aIC_tap.ersp(stable_tapper,FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3));
-[h,p,ci,stats] = ttest(aIC_rdlisten_s_avg-aIC_tap_s_avg)
-meanEffectSize(aIC_rdlisten_s_avg-aIC_tap_s_avg,'Effect' ,'cohen')
-
-% ERS stable
-aIC_rdlisten_s_avg = squeeze(mean(mean(aIC_rdlisten.ersp(stable_tapper,FOI(1):FOI(end),TOI(2,1):TOI(2,2)),2),3));
-aIC_tap_s_avg = squeeze(mean(mean(aIC_tap.ersp(stable_tapper,FOI(1):FOI(end),TOI(2,1):TOI(2,2)),2),3));
-[h,p,ci,stats] = ttest(aIC_rdlisten_s_avg-aIC_tap_s_avg)
-meanEffectSize(aIC_rdlisten_s_avg-aIC_tap_s_avg,'Effect' ,'cohen')
-
-% ERD unstable
-aIC_rdlisten_us_avg = squeeze(mean(mean(aIC_rdlisten.ersp(unstable_tapper,FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3));
-aIC_tap_us_avg = squeeze(mean(mean(aIC_tap.ersp(unstable_tapper,FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3));
-[h,p,ci,stats] = ttest(aIC_rdlisten_us_avg-aIC_tap_us_avg)
-
-% ERS unstable
-aIC_rdlisten_us_avg = squeeze(mean(mean(aIC_rdlisten.ersp(unstable_tapper,FOI(1):FOI(end),TOI(2,1):TOI(2,2)),2),3));
-aC_tap_us_avg = squeeze(mean(mean(aIC_tap.ersp(unstable_tapper,FOI(1):FOI(end),TOI(2,1):TOI(2,2)),2),3));
-[h,p,ci,stats] = ttest(aIC_rdlisten_us_avg-aIC_tap_us_avg)
-
-% pairwise comparison mIC activity of Sound vs. Tap localizer in stable group
-% ERD stable
-mIC_rdlisten_s_avg = squeeze(mean(mean(mIC_rdlisten.ersp(stable_tapper,FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3));
-mIC_tap_s_avg = squeeze(mean(mean(mIC_tap.ersp(stable_tapper,FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3));
-[h,p,ci,stats] = ttest(mIC_rdlisten_s_avg-mIC_tap_s_avg)
-meanEffectSize(mIC_rdlisten_s_avg-mIC_tap_s_avg,'Effect' ,'cohen')
-
-% ERS stable
-mIC_rdlisten_s_avg = squeeze(mean(mean(mIC_rdlisten.ersp(stable_tapper,FOI(1):FOI(end),TOI(2,1):TOI(2,2)),2),3));
-mIC_tap_s_avg = squeeze(mean(mean(mIC_tap.ersp(stable_tapper,FOI(1):FOI(end),TOI(2,1):TOI(2,2)),2),3));
-[h,p,ci,stats] = ttest(mIC_rdlisten_s_avg-mIC_tap_s_avg)
-meanEffectSize(mIC_rdlisten_s_avg-mIC_tap_s_avg,'Effect' ,'cohen')
-
-% ERD unstable
-mIC_rdlisten_us_avg = squeeze(mean(mean(mIC_rdlisten.ersp(unstable_tapper,FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3));
-mIC_tap_us_avg = squeeze(mean(mean(mIC_tap.ersp(unstable_tapper,FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3));
-[h,p,ci,stats] = ttest(mIC_rdlisten_us_avg-mIC_tap_us_avg)
-
-% ERS unstable
-mIC_rdlisten_us_avg = squeeze(mean(mean(mIC_rdlisten.ersp(unstable_tapper,FOI(1):FOI(end),TOI(2,1):TOI(2,2)),2),3));
-mIC_tap_us_avg = squeeze(mean(mean(mIC_tap.ersp(unstable_tapper,FOI(1):FOI(end),TOI(2,1):TOI(2,2)),2),3));
-[h,p,ci,stats] = ttest(mIC_rdlisten_us_avg-mIC_tap_us_avg)
-
-%% write them into data form then save to excel ersp_all.csv
-cd('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/ersp');
-files = dir('**/*.mat'); % will give en error if ersps.mat is already in the folder
-names = {files.name};
-
-for nfile = 1:length(names)
-    name  = names{nfile};
-    data = load(name);
-    
-    FOI = [find(data.freqs == 13) find(data.freqs == 25,1)];
-    TOI = [72 174;226 327]; % [-100 100] ERD [200 400] ERS
-    for nt = 1:2
-        parts_name = cellstr(split(name ,{'_','.'}));
-        ersp(nfile,nt,:) = squeeze(mean(mean(data.ersp(:,FOI(1):FOI(2),TOI(nt,1):TOI(nt,2)),2),3));
-        condition(nfile,nt) = string(strcat(parts_name{1},'.',parts_name{5},'.T',num2str(nt)));
-    end
-end
-ersp_all = reshape(ersp,16,25)'; % make sure index is right!
-condition = condition(:); % make sure index is right!
-
-save ersps ersp_all condition
-
-%% Regression 
-load(strcat(sync_path,'linear_reg_mIC_sync3t_ersp.mat'))
-regressor = 2;
-
-for nt = 1:size(lm,1)
-    for nf = 1:size(lm,2)
-    beta(nt,nf) = estimate{nt,nf}(regressor);
-    end
-end
-
 %% Pool regression of the pre-defined ROIs *** for the post-beta aIC sync3t, m* pre-beta mIC sync3s
 clc
 % load(strcat(rdlisten_path,'aIC_averagebaslined_ersp_itc_rdlisten2.mat'));
-load(strcat(sync_path,'mIC_averagebaslined_ersp_itc_sync3s.mat'));
+load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3t.mat'));
 load(strcat(SMT_path,'ITI_stds.mat'));
 
-FOI = [find(freqs == 13) find(freqs == 25,1)];
-TOI = [72 174;226 327]; % [-100 100] ERD [200 400] ERS
+FOI = [find(freqs == 13) find(freqs == 35,1)];
+TOI = [72 174;225 328]; % ~[-100 100] ERD ~[200 400] ERS
 
 ersp_ROI_pre = squeeze(mean(mean(ersp(:,FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3)); % prestimulus beta
 ersp_ROI_post = squeeze(mean(mean(ersp(:,FOI(1):FOI(end),TOI(2,1):TOI(2,2)),2),3)); % prestimulus beta
@@ -467,7 +336,7 @@ for nfile = 1:length(names)
     
     time = SIFTout{1,1,1}.erWinCenterTimes;
     freq = SIFTout{1,1,1}.freqs;
-    FOI = [find(freq == 13) find(freq == 25)];
+    FOI = [find(freq == 13) find(freq == 35)];
     
     for nsub = 1:length(aIC)
         tmp_maflow(nsub,:) = squeeze(mean(SIFTout{nsub}.dDTF08(aIC(nsub),mIC(nsub),:,:),4));
@@ -768,8 +637,8 @@ end
 jisuptitle('Sound-locked')
 
 %% top 4 vs. bottom 4 
-FOI = [find(freqs == 13) find(freqs == 25,1)];
-TOI = [72 174;226 327]; % [-100 100] ERD [200 400] ERS
+FOI = [find(freqs == 13) find(freqs == 35,1)];
+TOI = [72 174;225 328]; % ~[-100 100] ERD ~[200 400] ERS
 
 % ERD TOI *** for the mIC sync3s and mIC sync3t
 ersp_top4_stable_tapper = squeeze(mean(mean(ersp(sort_ind(1:4),FOI(1):FOI(end),TOI(1,1):TOI(1,2)),2),3));

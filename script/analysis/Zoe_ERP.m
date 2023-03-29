@@ -49,8 +49,8 @@ unstable_tapper = find(stds > median(stds)); % use std of ITI
 
 % File path 
 addpath(genpath('/Volumes/TOSHIBA/Research/Imagined_beats/script'))
-% EEG_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/preprocessed/icap/AM4b/rdlisten/all'; 
-EEG_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/preprocessed/icap/AM4b/spontap/all'; 
+EEG_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/preprocessed/icap/AM4b/rdlisten/all'; 
+% EEG_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/preprocessed/icap/AM4b/spontap/all'; 
   
 cd(EEG_path)
 % files = dir(fullfile(EEG_path,'*sync3s_e.set')); 
@@ -87,7 +87,7 @@ for nsub = 1:length(names)
     clear EEG parts_cleanEEG tempEEG
 end
 
-save mIC_erp_tap1_lp60Hz erps times
+save mIC_erp_rdlisten2_lp60Hz erps times
 figure;plot(times,erps);hold on;plot(times,mean(erps,1),'LineWidth',3,'color','k');xlim([-300 500])
 figure;plot(times,mean(erps(stable_tapper,:),1),'LineWidth',2);hold on; plot(times,mean(erps(unstable_tapper,:),1),'LineWidth',3);
 legend('Stable','Unstable')

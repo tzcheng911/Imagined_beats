@@ -47,8 +47,8 @@ set(gca,'FontSize',18)
 ERP_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/rdlisten/';
 SMT_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/';
 
-mIC_erp = load(strcat(SMT_path,'mIC_erp_tap1_lp60Hz.mat'));
-aIC_erp = load(strcat(ERP_path,'aIC_erp_rdlisten2_lp60Hz.mat'));
+mIC_erp = load(strcat(SMT_path,'mIC_erp_rdlisten2_lp60Hz.mat'));
+aIC_erp = load(strcat(ERP_path,'aIC_erp_tap1_lp60Hz.mat'));
 mIC_erp.erps = -1* mIC_erp.erps; % reverse polarity for the motor IC ERP
 
 load(strcat(SMT_path,'ITI_stds.mat'));
@@ -133,7 +133,7 @@ end
 
 % select the range to plot
 result = [1:4;5:8;9:12;13:16];
-nresult = 1; % change from 1 to 4
+nresult = 4; % change from 1 to 4
 y_mean = bar_plot_mean(result(nresult,:),:); 
 y_stderr = bar_plot_stderr(result(nresult,:),:);
 
@@ -161,6 +161,7 @@ xticklabels({'Tap','Sound','SMS_{Tap}','SMS_{Sound}'})
 legend('Stable','Unstable')
 
 %% Figure 7 ERSP regression
+
 %% Figure 8 Directional auditory-motor coupling
 %% Figure 9 slope
 

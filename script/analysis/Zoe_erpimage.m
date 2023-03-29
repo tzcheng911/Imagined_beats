@@ -1,7 +1,7 @@
 eeglab
 clear
 clc
-
+close all
 %%
 % File path 
 SMT_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/';
@@ -21,7 +21,7 @@ names = {files.name};
 new_amIC(1,:) = [6	8	3	9	8	3	7	5	2	9	1	3	8	6	1	1	5	3	6	4	1	1	5	8	4];
 new_amIC(2,:) = [8	1	11	11	10	11	8	4	13	4	15	7	18	8	16	21	12	36	4	17	6	9	14	21	8];
 
-FOI = [13 25];
+FOI = [13 35];
 
 %% erpimage
 IC = 2; % auditory or motor IC
@@ -50,33 +50,34 @@ end
 %% relationship between async and beta power 
 sorted_by = stds; % stds or cv of the Tap Localizer or si (mean relphase) of the SMS, or trial number included
 [~, sort_ind] = sort(sorted_by); 
-IC = 1; % auditory or motor IC
+IC = 2; % auditory or motor IC
 intercept = zeros(25,410);
 
-for nsub = 1:length(names)
-    tempEEG = names{sort_ind(nsub)};
+for nsub = 1
+    tempEEG = names{nsub};
     parts_cleanEEG = cellstr(split(tempEEG,'.'));
     EEG = pop_loadset('filename',tempEEG ,'filepath', EEG_path); % epoched data
     nextplot
     [outdata,outvar,outtrials,limits,axhndls, ...
                          erp,amps,cohers,cohsig,ampsig,outamps,...
                          phsangls,phsamp,sortidx,erpsig] ...
-                             = erpimage(squeeze(EEG.icaact(new_amIC(IC,sort_ind(nsub)),:,:)),eeg_getepochevent(EEG, {'Tap'},[],'latency'),...
-                             linspace(EEG.xmin*1000, EEG.xmax*1000, EEG.pnts),strcat("iS=",num2str(sort_ind(nsub)),"ITI=",num2str(sorted_by(sort_ind(nsub)))), 40, 1,...
-                             'cbar','on','caxis',[-4 4],'plotamps','on','coher',[13 25 0.05],'topo',...
-                             { mean(EEG.icawinv(:,[new_amIC(IC,sort_ind(nsub))]),2) EEG.chanlocs EEG.chaninfo});
+                             = erpimage(squeeze(EEG.icaact(new_amIC(IC,nsub),:,:)),eeg_getepochevent(EEG, {'Tap'},[],'latency'),...
+                             linspace(EEG.xmin*1000, EEG.xmax*1000, EEG.pnts),strcat("iS=",num2str(nsub),"ITI=",num2str(sorted_by(nsub))), 40, 1,...
+                             'cbar','on','caxis',[-4 4],'plotamps','on','coher',[13 50 0.05],'topo',...
+                             { mean(EEG.icawinv(:,[new_amIC(IC,nsub)]),2) EEG.chanlocs EEG.chaninfo});
 
     for t = 1:size(outdata,1)
         [P,S] = polyfit(outvar,outdata(t,:),1); % put async as x and beta power as y is more interpretable with erspimage 
-        slope(sort_ind(nsub),t) = P(1); % get the slope P(1) or intercept P(2) of the linear fit % original order
+        slope(nsub,t) = P(1); % get the slope P(1) or intercept P(2) of the linear fit % original order
         clear P
     end
     clear outdata outvar
-end        
-% save('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync/aB_lm.mat','slope')
+end  
+times = EEG.times;
+% save('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync/aB_lm_13_35Hz_mIC.mat','slope','times')
 
 %% ploting 
-load('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync/aB_lm.mat')
+load('/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/sync/aB_lm_13_35Hz_mIC.mat')
 
 figure;
 jisubplot(3,4,0)
