@@ -62,7 +62,7 @@ load(strcat(sync_path,'relative_phase.mat'));
 stable_tapper = find(stds < median(stds)); % use std of ITI
 unstable_tapper = find(stds > median(stds)); % use std of ITI
 
-% not seem to be correct: very large 
+% not seem to be correct: very large
 for i = 1:25
     autocorrAsync(i) = tap_results{i}.autocorrAsync(2);
     autocorrITI(i) = tap_results{i}.autocorrITI(2);
@@ -72,14 +72,12 @@ for i = 1:25
     plot(tap_results{i}.autocorrTau,tap_results{i}.autocorrITI,'o');title('autocorrITI'); xlabel('Tau')
 end
 
-%% calculate by myself: still very big ac, why? -> not normalized can use 'coeff'
+% calculate by myself
 taps = 30; %number of lags to keep
-autocorrAsync_all = nan(25,31);
-autocorrITI_all = nan(25,31);
+autocorrAsync_all = nan(25,30);
 
 for i = 1:25
-    tmp_async = relative_phase{i}*600;
-    [ac,tau] = xcorr(tmp_async-nanmean(tmp_async),'coeff');
+    [ac,tau] = xcorr(relative_phase{i}-nanmean(relative_phase{i}));
     im1 = find(tau==-1);
     i0 = im1+1;
     im = max(1,im1-taps+1);
@@ -87,16 +85,16 @@ for i = 1:25
     autocorrAsync(1:(i0-im+1)) = ac(i0:-1:im); %include 0 to lag -taps
     autocorrAsync_all(i,:) = autocorrAsync;
     
-    [ac,tau] = xcorr(tap_results{i}.iti-nanmean(tap_results{i}.iti),'coeff');
+    [ac,tau] = xcorr(tap.iti-nanmean(tap.iti));
     im1 = find(tau==-1);
     i0 = im1+1;
     im = max(1,im1-taps+1);
     autocorrITI = nan(taps+1,1);
     autocorrITI(1:(i0-im+1)) = ac(i0:-1:im); %include 0 to lag -taps
-    autocorrITI_all(i,:) = autocorrITI;
+    autocorrLag1ITI = ac(im1); %convenience, backward compat
+    autocorrLag0ITI = ac(im1+1);
+    autocorrAsync_all(i,:) = autocorrAsync;
     autocorrTau = tau(i0:-1:im);
-    
-    clear tmp_async
 end
 %% engineer the effect of synchronization: SDasync, SI
 for i = 1:25
