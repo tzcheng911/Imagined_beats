@@ -29,7 +29,7 @@ for nsub = 1:length(sub)
     xdfFile = dir('*.xdf').name;
     evtagDir = '/data/projects/zoe/ImaginedBeats/real_exp/evtag_raw_data';
     cd(evtagDir)
-    evtagFile = strcat(sub(nsub),'_evtag_2048.set');
+    evtag=File = strcat(sub(nsub),'_evtag_2048.set');
     EEG = pop_loadset(evtagFile);
     % for interactive use, to save time (since it can take a long time to load an pdf and
     %   we do not want to reload it every time, 

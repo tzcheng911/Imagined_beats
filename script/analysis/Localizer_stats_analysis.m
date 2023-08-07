@@ -1,6 +1,5 @@
 % eeglab
 clear 
-close all
 clc
 
 SMT_path = '/Volumes/TOSHIBA/Research/Imagined_beats/results/Localizers/SMT/';
@@ -71,6 +70,11 @@ for i = 1:25
     figure; 
     plot(tap_results{i}.autocorrTau,tap_results{i}.autocorrITI,'o');title('autocorrITI'); xlabel('Tau')
 end
+%%
+mean(autocorrITI(stable_tapper))
+mean(autocorrITI(unstable_tapper))
+[h,p,ci,stats] = ttest2(autocorrITI(stable_tapper),autocorrITI(unstable_tapper))
+[h,p,ci,stats] = ttest2(autocorrAsync(stable_tapper),autocorrAsync(unstable_tapper))
 
 %% calculate by myself: still very big ac, why? -> not normalized can use 'coeff'
 taps = 30; %number of lags to keep
@@ -303,7 +307,7 @@ for i = 1:16
     [h,p,ci,stats] = ttest2(ersp_all(stable_tapper,i), ersp_all(unstable_tapper,i))
 end
 %%
-load(strcat(sync_path,'aIC_averagebaslined_ersp_itc_sync3s.mat'));
+load(strcat(sync_path,'mIC_averagebaslined_ersp_itc_sync3s.mat'));
 % ersp(outlier_ind,:,:) = []; % exclude outliers
 
 FOI = [find(freqs == 13) find(freqs == 35,1)];

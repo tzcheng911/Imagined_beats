@@ -132,6 +132,61 @@ for nsub = 1:length(segmentation_name)
     end
     figure; plot(EEGr.data([sound,tap],:)')
 end
+
+%% get the tap data
+% match data length after clean_rawdata to ensure that we are looking at
+% the right signal
+% be careful! other subfields in EEG do not really mean anything ONLY USE
+% THE EEG.data and EEG.times to get the localizer series
+clear 
+close all
+clc
+tap1 = [2500 9e4;1000 1e5;1000 1e5;1000 9.8e4;2700 1e5;2.7e4 9.5e4;1000 7.2e4;...
+    1000 1e5;1000 9.92e4;1000 6.5e4;1.07e4 1.05e5;7000 1.02e5;1e4 1.08e5;...
+    1.08e4 1.04e5;1000 1.02e5;2200 9.42e4;3e4 1.2e5;1.46e4 1.01e5;1000 6.1e4;...
+    1000 9.5e4;4e4 1.4e5;1e4 1.2e5;1000 1e5;1000 9.5e4;6.4e4 1.6e5];
+sync3 = [1.8e5 2.624e5;2.16e5 3.1e5;2.22e5 3.16e5;2.13e5 3.07e5;2.1e5 3.1e5;...
+    2.25e5 3.3e5;1.72e5 2.56e5;2e5 3.02e5;2.3e5 3.3e5;1.05e5 1.55e5;2.31e5 3.24e5;...
+    3e5 3.94e5;2.265e5 3.2e5;2.43e5 3.36e5;2.22e5 3.18e5;2.16e5 3.1e5;2.2e5 3.2e5;...
+    2.34e5 3.14e5;1.4e5 2.2e5;2.1e5 3.1e5;2.92e5 3.86e5;2.2e5 3.3e5;2.1e5 3.1e5;...
+    2.2e5 3.2e5;2.7e5 3.7e5];
+
+raw_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/trigger_channels';
+raw_files = dir(fullfile(raw_path,'*triggers.set'));
+raw_name = {raw_files.name};
+
+preprocessed_path = '/Volumes/TOSHIBA/Research/Imagined_beats/real_exp/preprocessed';
+segmentation_files = dir(fullfile(preprocessed_path,'*dipfit.set'));
+segmentation_name = {segmentation_files.name};
+
+for nsub = 1:length(segmentation_name)
+    tempEEGp = segmentation_name{nsub};
+    tempEEGr = raw_name{nsub};
+    EEGp = pop_loadset('filename',tempEEGp ,'filepath', preprocessed_path);
+    EEGr = pop_loadset('filename',tempEEGr ,'filepath', raw_path);
+    EEGr.data = EEGr.data(:,[find(EEGp.etc.clean_sample_mask == 1)]);
+%     if nsub < 6
+%        sound = EEGr.nbchan - 32 + 7; % AIB7
+%        tap = EEGr.nbchan - 32 + 8; % AIB8
+%     elseif nsub > 5 && nsub < 9
+%        sound = EEGr.nbchan - 32 + 7; % AIB7
+%        tap = EEGr.nbchan - 32 + 5; % AIB5
+%     elseif nsub > 8
+%        sound = EEGr.nbchan - 32 + 2; % AIB2
+%        tap = EEGr.nbchan - 32 + 1; % AIB1
+%     end
+%    figure; plot(EEGr.data([sound,tap],:)')
+    EEG_tap = pop_select(EEGr,'point',tap1(nsub,:));
+    EEG_SMS = pop_select(EEGr,'point',sync3(nsub,:));
+    Tap{nsub} = EEG_tap.data;
+    Tap_t{nsub} = EEG_tap.times;
+    SMS{nsub} = EEG_SMS.data;
+    SMS_t{nsub} = EEG_SMS.times; 
+    clear EEG_tap EEG_SMS EEGr EEGp tempEEGp tempEEGr
+end
+save Tap1 Tap Tap_t
+save sync3 SMS SMS_t
+
 %%
 clear
 close all
